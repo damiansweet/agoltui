@@ -1,8 +1,7 @@
 use crossterm::event::{self, Event, KeyCode};
-// use ratatui::DefaultTerminal;
 use ratatui::{
     Frame,
-    layout::Alignment,
+    layout::{Alignment, Constraint, Direction, Layout},
     widgets::{Block, Borders, Paragraph},
 };
 
@@ -19,17 +18,31 @@ fn update(mut app: App, key: char) -> App {
 }
 
 fn ui(frame: &mut Frame, _app: &App) {
-    let area = frame.area();
+    // let area = frame.area();
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(frame.area());
 
-    let widget = Paragraph::new("Hello There Damian!")
+    let widget_top = Paragraph::new("Hello There Damian!")
         .block(
             Block::default()
-                .title("Functional Ratatui")
+                // .title("Functional Ratatui")
                 .borders(Borders::ALL),
         )
         .alignment(Alignment::Center);
 
-    frame.render_widget(widget, area);
+    let widget_bottom = Paragraph::new("Hello There AGAIN Damian!")
+        .block(
+            Block::default()
+                // .title("Functional Ratatui")
+                .borders(Borders::ALL),
+        )
+        .alignment(Alignment::Center);
+
+    frame.render_widget(widget_top, layout[0]);
+
+    frame.render_widget(widget_bottom, layout[1]);
 }
 
 fn main() -> std::io::Result<()> {
@@ -41,7 +54,8 @@ fn main() -> std::io::Result<()> {
         terminal.draw(|frame| ui(frame, &state))?;
 
         if let Event::Key(key) = event::read()? {
-            if let KeyCode::Esc = key.code {
+            // if let KeyCode::Esc = key.code {
+            if let KeyCode::Char('q') = key.code {
                 state = update(state, 'q');
             }
         }
