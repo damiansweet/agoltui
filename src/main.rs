@@ -9,6 +9,37 @@ struct App {
     should_quit: bool,
 }
 
+enum Action {
+    Quit,
+    // FetchAllData,
+    // DisplayMostReferences,
+    None,
+}
+
+fn map_key_to_action(key: KeyCode) -> Action {
+    match key {
+        KeyCode::Char('q') => Action::Quit,
+        _ => Action::None,
+    }
+}
+
+fn handle_action(action: Action, app: App) {
+    match action {
+        Action::Quit => quit(app),
+        Action::None => no_op(app),
+    };
+}
+
+fn quit(mut app: App) -> App {
+    app.should_quit = true;
+
+    app
+}
+
+fn no_op(app: App) -> App {
+    app
+}
+
 fn update(mut app: App, key: char) -> App {
     match key {
         'q' => app.should_quit = true,
@@ -16,6 +47,8 @@ fn update(mut app: App, key: char) -> App {
     };
     app
 }
+
+//TODO display feature layer info that has the most references
 
 fn ui(frame: &mut Frame, _app: &App) {
     // let area = frame.area();
