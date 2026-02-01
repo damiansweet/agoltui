@@ -41,6 +41,7 @@ fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
 
     let client = reqwest::Client::new();
+    // change below to just tokio
     let access_token: Result<ArcGISAccessToken, agol::error::ArcGISLibError> =
         trpl::block_on(async {
             let access_token = agol::fetch_oauth2_agol_token(&client).await?;
@@ -55,7 +56,10 @@ fn main() -> std::io::Result<()> {
             if let KeyCode::Char('q') = key.code {
                 app_running = false;
             } else if let KeyCode::Char('a') = key.code {
-                dbg!(&access_token);
+                match &access_token {
+                    Ok(ArcGISAccessToken { access_token }) => println!("{}", access_token),
+                    Err(e) => eprintln!("{}", e),
+                }
             }
         }
     }
