@@ -5,6 +5,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use agol::models::ArcGISAccessToken;
+
 //TODO display feature layer info that has the most references
 
 fn ui(frame: &mut Frame) {
@@ -38,6 +40,12 @@ fn ui(frame: &mut Frame) {
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
 
+    let client = reqwest::Client::new();
+    let access_token: Result<ArcGISAccessToken, agol::error::ArcGISLibError> =
+        trpl::block_on(async {
+            let access_token = agol::fetch_oauth2_agol_token(&client).await?;
+            Ok(access_token)
+        });
     let mut app_running = true;
 
     while app_running {
@@ -47,7 +55,7 @@ fn main() -> std::io::Result<()> {
             if let KeyCode::Char('q') = key.code {
                 app_running = false;
             } else if let KeyCode::Char('a') = key.code {
-                println!("hit the a key");
+                dbg!(&access_token);
             }
         }
     }
