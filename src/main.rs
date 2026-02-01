@@ -5,52 +5,9 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-struct App {
-    should_quit: bool,
-}
-
-enum Action {
-    Quit,
-    // FetchAllData,
-    // DisplayMostReferences,
-    None,
-}
-
-fn map_key_to_action(key: KeyCode) -> Action {
-    match key {
-        KeyCode::Char('q') => Action::Quit,
-        _ => Action::None,
-    }
-}
-
-fn handle_action(action: Action, app: App) {
-    match action {
-        Action::Quit => quit(app),
-        Action::None => no_op(app),
-    };
-}
-
-fn quit(mut app: App) -> App {
-    app.should_quit = true;
-
-    app
-}
-
-fn no_op(app: App) -> App {
-    app
-}
-
-fn update(mut app: App, key: char) -> App {
-    match key {
-        'q' => app.should_quit = true,
-        _ => {}
-    };
-    app
-}
-
 //TODO display feature layer info that has the most references
 
-fn ui(frame: &mut Frame, _app: &App) {
+fn ui(frame: &mut Frame) {
     // let area = frame.area();
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -81,15 +38,16 @@ fn ui(frame: &mut Frame, _app: &App) {
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
 
-    let mut state = App { should_quit: false };
+    let mut app_running = true;
 
-    while !state.should_quit {
-        terminal.draw(|frame| ui(frame, &state))?;
+    while app_running {
+        terminal.draw(ui)?;
 
         if let Event::Key(key) = event::read()? {
-            // if let KeyCode::Esc = key.code {
             if let KeyCode::Char('q') = key.code {
-                state = update(state, 'q');
+                app_running = false;
+            } else if let KeyCode::Char('a') = key.code {
+                println!("hit the a key");
             }
         }
     }
