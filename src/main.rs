@@ -1,8 +1,9 @@
 use crossterm::event::{self, Event, KeyCode};
+use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, List, ListDirection, Paragraph},
 };
 
 //TODO display feature layer info that has the most references
@@ -10,20 +11,25 @@ use ratatui::{
 fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults]) {
     // let area = frame.area();
     let layout = Layout::default()
-        .direction(Direction::Vertical)
+        .direction(Direction::Horizontal)
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.area());
 
-    let widget_top = Paragraph::new("Hello There Damian!")
-        .block(
-            Block::default()
-                // .title("Functional Ratatui")
-                .borders(Borders::ALL),
-        )
-        .alignment(Alignment::Center);
+    let all_content_ids: Vec<&str> = all_agol_content
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+
+    let widget_left = List::new(all_content_ids)
+        .block(Block::bordered().title("All AGOL Content List"))
+        .style(Style::new().white())
+        .highlight_style(Style::new().italic())
+        .highlight_symbol(">>")
+        .repeat_highlight_symbol(true)
+        .direction(ListDirection::TopToBottom);
 
     let content_count = all_agol_content.len();
-    let widget_bottom = Paragraph::new(format!("total agol content: {content_count}"))
+    let widget_right = Paragraph::new(format!("total agol content: {content_count}"))
         .block(
             Block::default()
                 // .title("Functional Ratatui")
@@ -31,9 +37,9 @@ fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults])
         )
         .alignment(Alignment::Center);
 
-    frame.render_widget(widget_top, layout[0]);
+    frame.render_widget(widget_left, layout[0]);
 
-    frame.render_widget(widget_bottom, layout[1]);
+    frame.render_widget(widget_right, layout[1]);
 }
 
 fn main() -> std::io::Result<()> {
