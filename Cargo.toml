@@ -11,3 +11,4 @@ agol = { path = "../agol" }
 reqwest = "0.13.1"
 tokio = { version = "1.49.0", features = ["full"] }
 trpl = "0.3.0"
+serde_json = "1.0.149"

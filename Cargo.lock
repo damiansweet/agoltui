@@ -37,6 +37,7 @@ dependencies = [
  "crossterm",
  "ratatui",
  "reqwest 0.13.1",
+ "serde_json",
  "tokio",
  "trpl",
 ]

@@ -1,3 +1,4 @@
+use agol::models::ArcGISSearchResults;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::style::Style;
 use ratatui::{
@@ -8,6 +9,8 @@ use ratatui::{
 use std::path::Path;
 
 //TODO display feature layer info that has the most references
+//
+//TODO on right widget show references for focused left widget agol item_id
 
 fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults]) {
     // let area = frame.area();
@@ -43,6 +46,12 @@ fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults])
     frame.render_widget(widget_right, layout[1]);
 }
 
+fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std::error::Error>> {
+    let data = std::fs::read_to_string("data/all_agol_content.json")?;
+
+    let data = serde_json::from_str(&data)?;
+    Ok(data)
+}
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
     //TODO create a loading screen widget to display data is fetching in background
@@ -51,8 +60,10 @@ fn main() -> std::io::Result<()> {
     let access_token = agol::fetch_oath2_agol_token_blocking(&client);
 
     match access_token {
-        Ok(access_token) => {
-            let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
+        Ok(_access_token) => {
+            // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
+            let all_agol_content = load_all_content_from_file();
+            //TODO create function that refreshes content in json file and re-reads from same file
 
             match all_agol_content {
                 Ok(agol_content) => {
