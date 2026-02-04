@@ -7,7 +7,7 @@ use ratatui::{
 
 //TODO display feature layer info that has the most references
 
-fn ui(frame: &mut Frame) {
+fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults]) {
     // let area = frame.area();
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -22,7 +22,8 @@ fn ui(frame: &mut Frame) {
         )
         .alignment(Alignment::Center);
 
-    let widget_bottom = Paragraph::new("Hello There AGAIN Damian!")
+    let content_count = all_agol_content.len();
+    let widget_bottom = Paragraph::new(format!("total agol content: {content_count}"))
         .block(
             Block::default()
                 // .title("Functional Ratatui")
@@ -37,6 +38,7 @@ fn ui(frame: &mut Frame) {
 
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
+    //TODO create a loading screen widget to display data is fetching in background
 
     let client = reqwest::blocking::Client::new();
     let access_token = agol::fetch_oath2_agol_token_blocking(&client);
@@ -50,7 +52,7 @@ fn main() -> std::io::Result<()> {
                     let mut app_running = true;
 
                     while app_running {
-                        terminal.draw(ui)?;
+                        terminal.draw(|frame| ui(frame, &agol_content))?;
 
                         if let Event::Key(key) = event::read()? {
                             if let KeyCode::Char('q') = key.code {
