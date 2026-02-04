@@ -5,8 +5,6 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use agol::models::ArcGISAccessToken;
-
 //TODO display feature layer info that has the most references
 
 fn ui(frame: &mut Frame) {
@@ -43,23 +41,36 @@ fn main() -> std::io::Result<()> {
     let client = reqwest::blocking::Client::new();
     let access_token = agol::fetch_oath2_agol_token_blocking(&client);
 
-    let mut app_running = true;
+    match access_token {
+        Ok(access_token) => {
+            let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
 
-    while app_running {
-        terminal.draw(ui)?;
+            match all_agol_content {
+                Ok(agol_content) => {
+                    let mut app_running = true;
 
-        if let Event::Key(key) = event::read()? {
-            if let KeyCode::Char('q') = key.code {
-                app_running = false;
-            } else if let KeyCode::Char('a') = key.code {
-                match &access_token {
-                    Ok(ArcGISAccessToken { access_token }) => println!("{}", access_token),
-                    Err(e) => eprintln!("{}", e),
+                    while app_running {
+                        terminal.draw(ui)?;
+
+                        if let Event::Key(key) = event::read()? {
+                            if let KeyCode::Char('q') = key.code {
+                                app_running = false;
+                            } else if let KeyCode::Char('a') = key.code {
+                                println!("total agol content: {}", agol_content.len());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("failed to fetch all agol content: {e}");
                 }
             }
+
+            ratatui::restore();
+        }
+        Err(e) => {
+            eprintln!("failed to fetch access_token: {}", e);
         }
     }
-
-    ratatui::restore();
     Ok(())
 }
