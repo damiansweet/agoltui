@@ -5,6 +5,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     widgets::{Block, Borders, List, ListDirection, Paragraph},
 };
+use std::path::Path;
 
 //TODO display feature layer info that has the most references
 
@@ -55,6 +56,10 @@ fn main() -> std::io::Result<()> {
 
             match all_agol_content {
                 Ok(agol_content) => {
+                    let relative_path = Path::new("data/all_agol_content.json");
+                    agol::pretty_write_all_agol_content_to_file(relative_path, &agol_content)
+                        .expect("unable to write all agol content to json");
+
                     let mut app_running = true;
 
                     while app_running {
