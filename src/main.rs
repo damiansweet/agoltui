@@ -40,13 +40,9 @@ fn ui(frame: &mut Frame) {
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
 
-    let client = reqwest::Client::new();
-    // change below to just tokio
-    let access_token: Result<ArcGISAccessToken, agol::error::ArcGISLibError> =
-        trpl::block_on(async {
-            let access_token = agol::fetch_oauth2_agol_token(&client).await?;
-            Ok(access_token)
-        });
+    let client = reqwest::blocking::Client::new();
+    let access_token = agol::fetch_oath2_agol_token_blocking(&client);
+
     let mut app_running = true;
 
     while app_running {
