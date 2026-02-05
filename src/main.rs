@@ -4,7 +4,7 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Borders, List, ListDirection, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListDirection, ListItem, ListState, Paragraph},
 };
 use std::path::Path;
 
@@ -28,6 +28,40 @@ fn init_state(len: usize) -> UiState {
     }
 }
 
+fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
+    if len == 0 {
+        return None;
+    }
+    let cur = current.unwrap_or(0) as isize;
+    let len_i = len as isize;
+    Some(((cur + delta).rem_euclid(len_i)) as usize)
+}
+
+fn apply_key(mut state: UiState, len: usize, code: KeyCode) -> UiState {
+    match code {
+        KeyCode::Char('j') => {
+            let next = move_selection(state.selected, len, 1);
+            state.selected = next;
+            state.list_state.select(next);
+            state
+        }
+        KeyCode::Char('k') => {
+            let previous = move_selection(state.selected, len, -1);
+            state.selected = previous;
+            state.list_state.select(previous);
+            state
+        }
+        _ => state,
+    }
+}
+
+fn selected_item<'a>(
+    state: &UiState,
+    items: &'a [ArcGISSearchResults],
+) -> Option<&'a ArcGISSearchResults> {
+    state.selected.and_then(|i| items.get(i))
+}
+
 fn ui(
     frame: &mut Frame,
     all_agol_content: &[agol::models::ArcGISSearchResults],
@@ -39,9 +73,9 @@ fn ui(
         .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(frame.area());
 
-    let all_content_ids: Vec<&str> = all_agol_content
+    let all_content_ids: Vec<ListItem> = all_agol_content
         .iter()
-        .map(|item| item.id.as_str())
+        .map(|item| ListItem::new(item.id.clone()))
         .collect();
 
     let widget_left = List::new(all_content_ids)
@@ -52,8 +86,12 @@ fn ui(
         .repeat_highlight_symbol(true)
         .direction(ListDirection::TopToBottom);
 
-    let content_count = all_agol_content.len();
-    let widget_right = Paragraph::new(format!("total agol content: {content_count}"))
+    // let content_count = all_agol_content.len();
+    let selected_title = selected_item(state, all_agol_content)
+        .map(|item| item.title.as_str())
+        .unwrap_or("<none>");
+
+    let widget_right = Paragraph::new(format!("Selected Title: {selected_title}"))
         .block(
             Block::default()
                 // .title("Functional Ratatui")
@@ -98,10 +136,21 @@ fn main() -> std::io::Result<()> {
                         terminal.draw(|frame| ui(frame, &agol_content, &mut ui_state))?;
 
                         if let Event::Key(key) = event::read()? {
-                            if let KeyCode::Char('q') = key.code {
-                                app_running = false;
-                            } else if let KeyCode::Char('a') = key.code {
-                                println!("total agol content: {}", agol_content.len());
+                            match key.code {
+                                KeyCode::Char('q') => app_running = false,
+
+                                KeyCode::Char('j') | KeyCode::Char('k') => {
+                                    ui_state = apply_key(ui_state, agol_content.len(), key.code)
+                                }
+
+                                KeyCode::Enter => {
+                                    if let Some(item) = selected_item(&ui_state, &agol_content) {
+                                        //todo use item id to fetch references and populate right widget
+                                        println!("selected item id: {}", item.id);
+                                    }
+                                }
+
+                                _ => {}
                             }
                         }
                     }
