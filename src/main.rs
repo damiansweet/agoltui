@@ -4,7 +4,7 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Borders, List, ListDirection, Paragraph},
+    widgets::{Block, Borders, List, ListDirection, ListState, Paragraph},
 };
 use std::path::Path;
 
@@ -12,7 +12,27 @@ use std::path::Path;
 //
 //TODO on right widget show references for focused left widget agol item_id
 
-fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults]) {
+#[derive(Debug, Clone)]
+struct UiState {
+    selected: Option<usize>,
+    list_state: ListState,
+}
+
+fn init_state(len: usize) -> UiState {
+    let mut list_state = ListState::default();
+    let selected = if len == 0 { None } else { Some(0) };
+    list_state.select(selected);
+    UiState {
+        selected,
+        list_state,
+    }
+}
+
+fn ui(
+    frame: &mut Frame,
+    all_agol_content: &[agol::models::ArcGISSearchResults],
+    state: &mut UiState,
+) {
     // let area = frame.area();
     let layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -41,7 +61,7 @@ fn ui(frame: &mut Frame, all_agol_content: &[agol::models::ArcGISSearchResults])
         )
         .alignment(Alignment::Center);
 
-    frame.render_widget(widget_left, layout[0]);
+    frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
     frame.render_widget(widget_right, layout[1]);
 }
@@ -71,10 +91,11 @@ fn main() -> std::io::Result<()> {
                     agol::pretty_write_all_agol_content_to_file(relative_path, &agol_content)
                         .expect("unable to write all agol content to json");
 
+                    let mut ui_state = init_state(agol_content.len());
                     let mut app_running = true;
 
                     while app_running {
-                        terminal.draw(|frame| ui(frame, &agol_content))?;
+                        terminal.draw(|frame| ui(frame, &agol_content, &mut ui_state))?;
 
                         if let Event::Key(key) = event::read()? {
                             if let KeyCode::Char('q') = key.code {
