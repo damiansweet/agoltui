@@ -39,13 +39,13 @@ fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<us
 
 fn apply_key(mut state: UiState, len: usize, code: KeyCode) -> UiState {
     match code {
-        KeyCode::Char('j') => {
+        KeyCode::Char('j') | KeyCode::Down => {
             let next = move_selection(state.selected, len, 1);
             state.selected = next;
             state.list_state.select(next);
             state
         }
-        KeyCode::Char('k') => {
+        KeyCode::Char('k') | KeyCode::Up => {
             let previous = move_selection(state.selected, len, -1);
             state.selected = previous;
             state.list_state.select(previous);
@@ -122,6 +122,7 @@ fn main() -> std::io::Result<()> {
             // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
             let all_agol_content = load_all_content_from_file();
             //TODO create function that refreshes content in json file and re-reads from same file
+            //TODO show on bottom line last time data was synced
 
             match all_agol_content {
                 Ok(agol_content) => {
@@ -139,7 +140,11 @@ fn main() -> std::io::Result<()> {
                             match key.code {
                                 KeyCode::Char('q') => app_running = false,
 
-                                KeyCode::Char('j') | KeyCode::Char('k') => {
+                                KeyCode::Char('j') | KeyCode::Down => {
+                                    ui_state = apply_key(ui_state, agol_content.len(), key.code)
+                                }
+
+                                KeyCode::Char('k') | KeyCode::Up => {
                                     ui_state = apply_key(ui_state, agol_content.len(), key.code)
                                 }
 
