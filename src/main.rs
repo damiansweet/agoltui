@@ -42,10 +42,11 @@ fn read_last_sync() -> std::result::Result<Option<String>, Box<dyn std::error::E
     let file = std::fs::read_to_string("data/last_sync.txt")?;
 
     if file.len() > 0 {
-        let sync_time: Vec<&str> = file.split("\n").collect();
+        // let sync_time: Vec<&str> = file.split("\n").collect();
 
-        let sync_time = sync_time[0].to_string();
-        Ok(Some(sync_time))
+        // let sync_time = sync_time[0].to_string();
+        let sync_time = file.trim();
+        Ok(Some(sync_time.to_string()))
     } else {
         Ok(None)
     }
