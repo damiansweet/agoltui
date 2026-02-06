@@ -1,4 +1,5 @@
 use agol::models::ArcGISSearchResults;
+use chrono::Local;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::style::Style;
 use ratatui::{
@@ -16,15 +17,37 @@ use std::path::Path;
 struct UiState {
     selected: Option<usize>,
     list_state: ListState,
+    last_synced: Option<String>,
 }
 
 fn init_state(len: usize) -> UiState {
     let mut list_state = ListState::default();
     let selected = if len == 0 { None } else { Some(0) };
     list_state.select(selected);
+    let last_synced = read_last_sync();
+
+    let last_synced = match last_synced {
+        Ok(Some(time)) => Some(time),
+        Ok(None) => None,
+        _ => None,
+    };
     UiState {
         selected,
         list_state,
+        last_synced,
+    }
+}
+
+fn read_last_sync() -> std::result::Result<Option<String>, Box<dyn std::error::Error>> {
+    let file = std::fs::read_to_string("data/last_sync.txt")?;
+
+    if file.len() > 0 {
+        let sync_time: Vec<&str> = file.split("\n").collect();
+
+        let sync_time = sync_time[0].to_string();
+        Ok(Some(sync_time))
+    } else {
+        Ok(None)
     }
 }
 
@@ -110,6 +133,13 @@ fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std:
     let data = serde_json::from_str(&data)?;
     Ok(data)
 }
+
+fn get_current_time() -> std::result::Result<String, Box<dyn std::error::Error>> {
+    let dt = Local::now();
+    let date_string = dt.to_rfc2822();
+    Ok(date_string)
+}
+
 fn main() -> std::io::Result<()> {
     let mut terminal = ratatui::init();
     //TODO create a loading screen widget to display data is fetching in background
@@ -152,6 +182,7 @@ fn main() -> std::io::Result<()> {
                                     if let Some(item) = selected_item(&ui_state, &agol_content) {
                                         //todo use item id to fetch references and populate right widget
                                         println!("selected item id: {}", item.id);
+                                        println!("last sync time: {:?}", ui_state.last_synced);
                                     }
                                 }
 
