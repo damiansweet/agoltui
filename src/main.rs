@@ -7,6 +7,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     widgets::{Block, Borders, List, ListDirection, ListItem, ListState, Paragraph},
 };
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 //TODO display feature layer info that has the most references
@@ -135,6 +136,40 @@ fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std:
     Ok(data)
 }
 
+fn refresh_data(
+    client: &reqwest::blocking::Client,
+    access_token: &agol::models::ArcGISAccessToken,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let all_agol_content = agol::fetch_all_agol_content_blocking(client, access_token)?;
+
+    let web_maps = agol::filter_web_maps(&all_agol_content);
+    let web_map_ids = agol::extract_agol_ids(&web_maps);
+
+    let all_layers_with_web_maps =
+        agol::fetch_layers_for_all_web_maps_blocking(client, access_token, &web_map_ids)?;
+    //write all layers with web maps to json file
+
+    let layers_with_web_map_path = Path::new("data/all_layers_with_web_maps.json");
+    pretty_write_all_layers_with_web_maps_to_file(
+        layers_with_web_map_path,
+        all_layers_with_web_maps,
+    )?;
+
+    Ok(())
+}
+
+fn pretty_write_all_layers_with_web_maps_to_file(
+    file_path: &Path,
+    all_layers: HashMap<String, HashSet<String>>,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let file = std::fs::File::create(file_path).expect("failed to create file");
+    let writer = std::io::BufWriter::new(file);
+
+    serde_json::to_writer(writer, &all_layers)?;
+
+    Ok(())
+}
+
 fn get_current_time() -> std::result::Result<String, Box<dyn std::error::Error>> {
     let dt = Local::now();
     let date_string = dt.to_rfc2822();
@@ -149,9 +184,9 @@ fn main() -> std::io::Result<()> {
     let access_token = agol::fetch_oath2_agol_token_blocking(&client);
 
     match access_token {
-        Ok(_access_token) => {
-            // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
-            let all_agol_content = load_all_content_from_file();
+        Ok(access_token) => {
+            let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
+            // let all_agol_content = load_all_content_from_file();
             //TODO create function that refreshes content in json file and re-reads from same file
             //TODO show on bottom line last time data was synced
 
