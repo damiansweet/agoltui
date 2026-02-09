@@ -141,6 +141,8 @@ fn refresh_data(
     access_token: &agol::models::ArcGISAccessToken,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let all_agol_content = agol::fetch_all_agol_content_blocking(client, access_token)?;
+    let all_agol_content_path = Path::new("data/all_agol_content.json");
+    agol::pretty_write_all_agol_content_to_file(&all_agol_content_path, &all_agol_content)?;
 
     let web_maps = agol::filter_web_maps(&all_agol_content);
     let web_map_ids = agol::extract_agol_ids(&web_maps);
@@ -165,7 +167,7 @@ fn pretty_write_all_layers_with_web_maps_to_file(
     let file = std::fs::File::create(file_path).expect("failed to create file");
     let writer = std::io::BufWriter::new(file);
 
-    serde_json::to_writer(writer, &all_layers)?;
+    serde_json::to_writer_pretty(writer, &all_layers)?;
 
     Ok(())
 }
@@ -185,17 +187,13 @@ fn main() -> std::io::Result<()> {
 
     match access_token {
         Ok(access_token) => {
-            let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
-            // let all_agol_content = load_all_content_from_file();
+            // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
+            let all_agol_content = load_all_content_from_file();
             //TODO create function that refreshes content in json file and re-reads from same file
             //TODO show on bottom line last time data was synced
 
             match all_agol_content {
                 Ok(agol_content) => {
-                    let relative_path = Path::new("data/all_agol_content.json");
-                    agol::pretty_write_all_agol_content_to_file(relative_path, &agol_content)
-                        .expect("unable to write all agol content to json");
-
                     let mut ui_state = init_state(agol_content.len());
                     let mut app_running = true;
 
@@ -227,8 +225,60 @@ fn main() -> std::io::Result<()> {
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("failed to fetch all agol content: {e}");
+                Err(_) => {
+                    match refresh_data(&client, &access_token) {
+                        Ok(_) => {
+                            let agol_content_refresh = load_all_content_from_file().unwrap();
+                            let mut ui_state = init_state(agol_content_refresh.len());
+                            let mut app_running = true;
+
+                            while app_running {
+                                terminal.draw(|frame| {
+                                    ui(frame, &agol_content_refresh, &mut ui_state)
+                                })?;
+
+                                if let Event::Key(key) = event::read()? {
+                                    match key.code {
+                                        KeyCode::Char('q') => app_running = false,
+
+                                        KeyCode::Char('j') | KeyCode::Down => {
+                                            ui_state = apply_key(
+                                                ui_state,
+                                                agol_content_refresh.len(),
+                                                key.code,
+                                            )
+                                        }
+
+                                        KeyCode::Char('k') | KeyCode::Up => {
+                                            ui_state = apply_key(
+                                                ui_state,
+                                                agol_content_refresh.len(),
+                                                key.code,
+                                            )
+                                        }
+
+                                        KeyCode::Enter => {
+                                            if let Some(item) =
+                                                selected_item(&ui_state, &agol_content_refresh)
+                                            {
+                                                //todo use item id to fetch references and populate right widget
+                                                println!("selected item id: {}", item.id);
+                                                // println!(
+                                                // "last sync time: {:?}",
+                                                // ui_state.last_synced
+                                                // );
+                                            }
+                                        }
+
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("error refreshing data: {:?}", e);
+                        }
+                    }
                 }
             }
 
