@@ -6,7 +6,7 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, List, ListDirection, ListItem, ListState, Paragraph},
+    widgets::{Block, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
 };
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -55,9 +55,6 @@ fn read_last_sync() -> std::result::Result<Option<String>, Box<dyn std::error::E
 }
 
 fn get_layer_references(id: &str) -> Vec<String> {
-    //TODO read file to HashMap<String, Vec<String>>
-    //TODO use .get(id) to lookup Vec<String>
-    //TODO export results if successful and default if unsuccessful
     let file = std::fs::read_to_string("data/all_layers_with_web_maps.json");
 
     let file_string = match file {
@@ -71,7 +68,7 @@ fn get_layer_references(id: &str) -> Vec<String> {
     if let Some(references) = layer_references.get(id) {
         references.clone()
     } else {
-        vec![String::from("")]
+        Vec::new()
     }
 }
 
@@ -141,20 +138,30 @@ fn ui(
     let selected_title = selected_item(state, all_agol_content)
         .map(|item| item.title.as_str())
         .unwrap_or("<none>");
-    let widget_center = Paragraph::new(selected_title).alignment(Alignment::Center);
+
+    let widget_center = Paragraph::new(selected_title)
+        .wrap(Wrap { trim: true })
+        .block(Block::bordered().title("Layer Info"))
+        .style(Style::new().white())
+        .alignment(Alignment::Center);
+
     let widget_right = if let Some(selected_id) =
         selected_item(state, all_agol_content).map(|item| item.id.as_str())
     {
         let references = get_layer_references(selected_id);
-        List::new(references)
-            .block(Block::bordered().title("References"))
-            .style(Style::new().red())
-            .direction(ListDirection::TopToBottom)
+        if references.len() >= 1 {
+            List::new(references)
+                .block(Block::bordered().title("References"))
+                .style(Style::new().red())
+                .direction(ListDirection::TopToBottom)
+        } else {
+            List::default()
+                .block(Block::bordered().title("No References"))
+                .style(Style::new().red())
+                .direction(ListDirection::TopToBottom)
+        }
     } else {
-        List::new(["None"])
-            .block(Block::bordered().title("References"))
-            .style(Style::new().red())
-            .direction(ListDirection::TopToBottom)
+        List::default()
     };
 
     frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
