@@ -12,8 +12,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 //TODO display feature layer info that has the most references
-//
-//TODO on right widget show references for focused left widget agol item_id
 
 #[derive(Debug, Clone)]
 struct UiState {
@@ -66,7 +64,11 @@ fn get_layer_references(id: &str) -> Vec<String> {
         serde_json::from_str(&file_string).unwrap_or_default();
 
     if let Some(references) = layer_references.get(id) {
-        references.clone()
+        // references.clone()
+        references
+            .into_iter()
+            .map(|item| format!("https://cityoflonetree.maps.arcgis.com/home/item.html?id={item}"))
+            .collect()
     } else {
         Vec::new()
     }
@@ -113,11 +115,11 @@ fn ui(
 ) {
     // let area = frame.area();
     let layout = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints(vec![
             Constraint::Percentage(50),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
+            Constraint::Percentage(10),
+            Constraint::Percentage(40),
         ])
         .split(frame.area());
 
@@ -137,9 +139,15 @@ fn ui(
     // let content_count = all_agol_content.len();
     let selected_title = selected_item(state, all_agol_content)
         .map(|item| item.title.as_str())
-        .unwrap_or("<none>");
+        .unwrap_or_default();
 
-    let widget_center = Paragraph::new(selected_title)
+    let selected_owner = selected_item(state, all_agol_content)
+        .map(|item| item.owner.as_str())
+        .unwrap_or_default();
+
+    let layer_info_text = format!("Title: {selected_title}\nOwner: {selected_owner}");
+
+    let widget_center = Paragraph::new(layer_info_text)
         .wrap(Wrap { trim: true })
         .block(Block::bordered().title("Layer Info"))
         .style(Style::new().white())
@@ -152,7 +160,7 @@ fn ui(
         if references.len() >= 1 {
             List::new(references)
                 .block(Block::bordered().title("References"))
-                .style(Style::new().red())
+                .style(Style::new().blue())
                 .direction(ListDirection::TopToBottom)
         } else {
             List::default()
