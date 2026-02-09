@@ -1,3 +1,4 @@
+use agol::filter_feature_services;
 use agol::models::ArcGISSearchResults;
 use chrono::Local;
 use crossterm::event::{self, Event, KeyCode};
@@ -5,7 +6,7 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Borders, List, ListDirection, ListItem, ListState, Paragraph},
+    widgets::{Block, List, ListDirection, ListItem, ListState, Paragraph},
 };
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -53,6 +54,27 @@ fn read_last_sync() -> std::result::Result<Option<String>, Box<dyn std::error::E
     }
 }
 
+fn get_layer_references(id: &str) -> Vec<String> {
+    //TODO read file to HashMap<String, Vec<String>>
+    //TODO use .get(id) to lookup Vec<String>
+    //TODO export results if successful and default if unsuccessful
+    let file = std::fs::read_to_string("data/all_layers_with_web_maps.json");
+
+    let file_string = match file {
+        Ok(file_string) => file_string,
+        Err(_) => String::from(""),
+    };
+
+    let layer_references: HashMap<String, Vec<String>> =
+        serde_json::from_str(&file_string).unwrap_or_default();
+
+    if let Some(references) = layer_references.get(id) {
+        references.clone()
+    } else {
+        vec![String::from("")]
+    }
+}
+
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
     if len == 0 {
         return None;
@@ -95,7 +117,11 @@ fn ui(
     // let area = frame.area();
     let layout = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints(vec![
+            Constraint::Percentage(50),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+        ])
         .split(frame.area());
 
     let all_content_ids: Vec<ListItem> = all_agol_content
@@ -115,18 +141,27 @@ fn ui(
     let selected_title = selected_item(state, all_agol_content)
         .map(|item| item.title.as_str())
         .unwrap_or("<none>");
-
-    let widget_right = Paragraph::new(format!("Selected Title: {selected_title}"))
-        .block(
-            Block::default()
-                // .title("Functional Ratatui")
-                .borders(Borders::ALL),
-        )
-        .alignment(Alignment::Center);
+    let widget_center = Paragraph::new(selected_title).alignment(Alignment::Center);
+    let widget_right = if let Some(selected_id) =
+        selected_item(state, all_agol_content).map(|item| item.id.as_str())
+    {
+        let references = get_layer_references(selected_id);
+        List::new(references)
+            .block(Block::bordered().title("References"))
+            .style(Style::new().red())
+            .direction(ListDirection::TopToBottom)
+    } else {
+        List::new(["None"])
+            .block(Block::bordered().title("References"))
+            .style(Style::new().red())
+            .direction(ListDirection::TopToBottom)
+    };
 
     frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
-    frame.render_widget(widget_right, layout[1]);
+    frame.render_widget(widget_center, layout[1]);
+
+    frame.render_widget(widget_right, layout[2]);
 }
 
 fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std::error::Error>> {
@@ -194,6 +229,7 @@ fn main() -> std::io::Result<()> {
 
             match all_agol_content {
                 Ok(agol_content) => {
+                    let agol_content = filter_feature_services(&agol_content);
                     let mut ui_state = init_state(agol_content.len());
                     let mut app_running = true;
 
@@ -212,14 +248,13 @@ fn main() -> std::io::Result<()> {
                                     ui_state = apply_key(ui_state, agol_content.len(), key.code)
                                 }
 
-                                KeyCode::Enter => {
-                                    if let Some(item) = selected_item(&ui_state, &agol_content) {
-                                        //todo use item id to fetch references and populate right widget
-                                        println!("selected item id: {}", item.id);
-                                        println!("last sync time: {:?}", ui_state.last_synced);
-                                    }
-                                }
-
+                                // KeyCode::Enter => {
+                                //     if let Some(item) = selected_item(&ui_state, &agol_content) {
+                                //         //todo use item id to fetch references and populate right widget
+                                //         println!("selected item id: {}", item.id);
+                                //         println!("last sync time: {:?}", ui_state.last_synced);
+                                //     }
+                                // }
                                 _ => {}
                             }
                         }
