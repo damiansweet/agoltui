@@ -144,8 +144,14 @@ fn ui(
     let selected_owner = selected_item(state, all_agol_content)
         .map(|item| item.owner.as_str())
         .unwrap_or_default();
+    let last_sync = if let Some(last_sync_time) = &state.last_synced {
+        last_sync_time.clone()
+    } else {
+        String::from("")
+    };
 
-    let layer_info_text = format!("Title: {selected_title}\nOwner: {selected_owner}");
+    let layer_info_text =
+        format!("Title: {selected_title}\nOwner: {selected_owner}\nData Last Synced: {last_sync}");
 
     let widget_center = Paragraph::new(layer_info_text)
         .wrap(Wrap { trim: true })
