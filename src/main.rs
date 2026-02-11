@@ -225,6 +225,7 @@ fn pretty_write_all_layers_with_web_maps_to_file(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn get_current_time() -> std::result::Result<String, Box<dyn std::error::Error>> {
     let dt = Local::now();
     let date_string = dt.to_rfc2822();
