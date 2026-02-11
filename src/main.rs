@@ -17,7 +17,7 @@ use std::path::Path;
 struct UiState {
     selected: Option<usize>,
     list_state: ListState,
-    last_synced: Option<String>,
+    last_synced: String,
 }
 
 fn init_state(len: usize) -> UiState {
@@ -26,11 +26,6 @@ fn init_state(len: usize) -> UiState {
     list_state.select(selected);
     let last_synced = read_last_sync();
 
-    let last_synced = match last_synced {
-        Ok(Some(time)) => Some(time),
-        Ok(None) => None,
-        _ => None,
-    };
     UiState {
         selected,
         list_state,
@@ -38,17 +33,22 @@ fn init_state(len: usize) -> UiState {
     }
 }
 
-fn read_last_sync() -> std::result::Result<Option<String>, Box<dyn std::error::Error>> {
-    let file = std::fs::read_to_string("data/last_sync.txt")?;
+fn read_last_sync() -> String {
+    let file = std::fs::read_to_string("data/last_sync.txt");
 
-    if file.len() > 0 {
-        // let sync_time: Vec<&str> = file.split("\n").collect();
+    match file {
+        Ok(file_contents) => {
+            if file_contents.len() > 0 {
+                // let sync_time: Vec<&str> = file.split("\n").collect();
 
-        // let sync_time = sync_time[0].to_string();
-        let sync_time = file.trim();
-        Ok(Some(sync_time.to_string()))
-    } else {
-        Ok(None)
+                // let sync_time = sync_time[0].to_string();
+                let sync_time = file_contents.trim();
+                sync_time.to_string()
+            } else {
+                String::new()
+            }
+        }
+        Err(_) => String::new(),
     }
 }
 
@@ -144,14 +144,11 @@ fn ui(
     let selected_owner = selected_item(state, all_agol_content)
         .map(|item| item.owner.as_str())
         .unwrap_or_default();
-    let last_sync = if let Some(last_sync_time) = &state.last_synced {
-        last_sync_time.clone()
-    } else {
-        String::from("")
-    };
+    let last_sync = &state.last_synced.clone();
 
-    let layer_info_text =
-        format!("Title: {selected_title}\nOwner: {selected_owner}\nData Last Synced: {last_sync}");
+    let layer_info_text = format!(
+        "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}"
+    );
 
     let widget_center = Paragraph::new(layer_info_text)
         .wrap(Wrap { trim: true })
