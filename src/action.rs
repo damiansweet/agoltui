@@ -1,5 +1,7 @@
-use crate::{UiState, read_last_sync, refresh_data};
+use crate::{UiState, read_last_sync, refresh_data, ui};
+use agol::models::ArcGISSearchResults;
 use crossterm::event::KeyCode;
+use ratatui::{Terminal, backend::Backend};
 pub enum Action {
     SyncData,
     MoveSelectionDown,
@@ -31,7 +33,9 @@ pub fn handle_key(key: KeyCode) -> Action {
 
 pub fn handle_action(
     state: &mut UiState,
+    terminal: &mut Terminal<impl Backend>,
     len: usize,
+    agol_content: Vec<ArcGISSearchResults>,
     action: Action,
     client: &reqwest::blocking::Client,
     access_token: &agol::models::ArcGISAccessToken,
@@ -47,14 +51,23 @@ pub fn handle_action(
             state.selected = previous;
             state.list_state.select(previous);
         }
-        Action::SyncData => match refresh_data(client, access_token) {
-            Ok(_) => {
-                let last_sync = read_last_sync();
-                state.last_synced = last_sync;
-                state.list_state.select(None);
+        Action::SyncData => {
+            state.loading = true;
+            terminal
+                .draw(|frame| {
+                    ui(frame, &agol_content, state);
+                })
+                .expect("failed to draw loading screen");
+            match refresh_data(client, access_token) {
+                Ok(_) => {
+                    let last_sync = read_last_sync();
+                    state.last_synced = last_sync;
+                    state.list_state.select(None);
+                    state.loading = false;
+                }
+                Err(_) => {}
             }
-            Err(_) => {}
-        },
+        }
         Action::Quit => {
             state.running = false;
         }

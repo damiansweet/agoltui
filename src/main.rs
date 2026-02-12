@@ -22,6 +22,7 @@ pub struct UiState {
     list_state: ListState,
     last_synced: String,
     running: bool,
+    loading: bool,
 }
 
 fn init_state(len: usize) -> UiState {
@@ -30,12 +31,14 @@ fn init_state(len: usize) -> UiState {
     list_state.select(selected);
     let last_synced = read_last_sync();
     let running = true;
+    let loading = false;
 
     UiState {
         selected,
         list_state,
         last_synced,
         running,
+        loading,
     }
 }
 
@@ -58,6 +61,7 @@ pub fn read_last_sync() -> String {
     }
 }
 
+//TODO call this from action not UI
 fn get_layer_references(id: &str) -> Vec<String> {
     let file = std::fs::read_to_string("data/all_layers_with_web_maps.json");
 
@@ -92,73 +96,82 @@ fn ui(
     all_agol_content: &[agol::models::ArcGISSearchResults],
     state: &mut UiState,
 ) {
-    // let area = frame.area();
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Percentage(50),
-            Constraint::Percentage(10),
-            Constraint::Percentage(40),
-        ])
-        .split(frame.area());
+    if state.loading {
+        let loading_widget = Paragraph::new("Loading data, please wait...")
+            .block(Block::bordered().title("Status"))
+            .style(Style::new().yellow())
+            .alignment(Alignment::Center);
 
-    let all_content_ids: Vec<ListItem> = all_agol_content
-        .iter()
-        .map(|item| ListItem::new(item.id.clone()))
-        .collect();
+        frame.render_widget(loading_widget, frame.area())
+    } else {
+        // let area = frame.area();
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Percentage(50),
+                Constraint::Percentage(10),
+                Constraint::Percentage(40),
+            ])
+            .split(frame.area());
 
-    let widget_left = List::new(all_content_ids)
-        .block(Block::bordered().title("All AGOL Content List"))
-        .style(Style::new().white())
-        .highlight_style(Style::new().italic())
-        .highlight_symbol(">>")
-        .repeat_highlight_symbol(true)
-        .direction(ListDirection::TopToBottom);
+        let all_content_ids: Vec<ListItem> = all_agol_content
+            .iter()
+            .map(|item| ListItem::new(item.id.clone()))
+            .collect();
 
-    // let content_count = all_agol_content.len();
-    let selected_title = selected_item(state, all_agol_content)
-        .map(|item| item.title.as_str())
-        .unwrap_or_default();
+        let widget_left = List::new(all_content_ids)
+            .block(Block::bordered().title("All AGOL Content List"))
+            .style(Style::new().white())
+            .highlight_style(Style::new().italic())
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::TopToBottom);
 
-    let selected_owner = selected_item(state, all_agol_content)
-        .map(|item| item.owner.as_str())
-        .unwrap_or_default();
-    let last_sync = &state.last_synced.clone();
+        // let content_count = all_agol_content.len();
+        let selected_title = selected_item(state, all_agol_content)
+            .map(|item| item.title.as_str())
+            .unwrap_or_default();
 
-    let layer_info_text = format!(
-        "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}"
-    );
+        let selected_owner = selected_item(state, all_agol_content)
+            .map(|item| item.owner.as_str())
+            .unwrap_or_default();
+        let last_sync = &state.last_synced.clone();
 
-    let widget_center = Paragraph::new(layer_info_text)
-        .wrap(Wrap { trim: true })
-        .block(Block::bordered().title("Layer Info"))
-        .style(Style::new().white())
-        .alignment(Alignment::Center);
+        let layer_info_text = format!(
+            "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}"
+        );
 
-    let widget_right = if let Some(selected_id) =
-        selected_item(state, all_agol_content).map(|item| item.id.as_str())
-    {
-        let references = get_layer_references(selected_id);
-        if references.len() >= 1 {
-            List::new(references)
-                .block(Block::bordered().title("References"))
-                .style(Style::new().blue())
-                .direction(ListDirection::TopToBottom)
+        let widget_center = Paragraph::new(layer_info_text)
+            .wrap(Wrap { trim: true })
+            .block(Block::bordered().title("Layer Info"))
+            .style(Style::new().white())
+            .alignment(Alignment::Center);
+
+        let widget_right = if let Some(selected_id) =
+            selected_item(state, all_agol_content).map(|item| item.id.as_str())
+        {
+            let references = get_layer_references(selected_id);
+            if references.len() >= 1 {
+                List::new(references)
+                    .block(Block::bordered().title("References"))
+                    .style(Style::new().blue())
+                    .direction(ListDirection::TopToBottom)
+            } else {
+                List::default()
+                    .block(Block::bordered().title("No References"))
+                    .style(Style::new().red())
+                    .direction(ListDirection::TopToBottom)
+            }
         } else {
             List::default()
-                .block(Block::bordered().title("No References"))
-                .style(Style::new().red())
-                .direction(ListDirection::TopToBottom)
-        }
-    } else {
-        List::default()
-    };
+        };
 
-    frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
+        frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
-    frame.render_widget(widget_center, layout[1]);
+        frame.render_widget(widget_center, layout[1]);
 
-    frame.render_widget(widget_right, layout[2]);
+        frame.render_widget(widget_right, layout[2]);
+    }
 }
 
 fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std::error::Error>> {
@@ -241,7 +254,9 @@ fn main() -> std::io::Result<()> {
                             let action = action::handle_key(key.code);
                             action::handle_action(
                                 &mut ui_state,
+                                &mut terminal,
                                 agol_content.len(),
+                                agol_content.clone(),
                                 action,
                                 &client,
                                 &access_token,
