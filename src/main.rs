@@ -1,7 +1,7 @@
 use agol::filter_feature_services;
 use agol::models::ArcGISSearchResults;
 use chrono::Local;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event};
 use ratatui::style::Style;
 use ratatui::{
     Frame,
@@ -9,15 +9,19 @@ use ratatui::{
     widgets::{Block, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
 };
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::Path;
+
+mod action;
 
 //TODO display feature layer info that has the most references
 
 #[derive(Debug, Clone)]
-struct UiState {
+pub struct UiState {
     selected: Option<usize>,
     list_state: ListState,
     last_synced: String,
+    running: bool,
 }
 
 fn init_state(len: usize) -> UiState {
@@ -25,15 +29,17 @@ fn init_state(len: usize) -> UiState {
     let selected = if len == 0 { None } else { Some(0) };
     list_state.select(selected);
     let last_synced = read_last_sync();
+    let running = true;
 
     UiState {
         selected,
         list_state,
         last_synced,
+        running,
     }
 }
 
-fn read_last_sync() -> String {
+pub fn read_last_sync() -> String {
     let file = std::fs::read_to_string("data/last_sync.txt");
 
     match file {
@@ -71,33 +77,6 @@ fn get_layer_references(id: &str) -> Vec<String> {
             .collect()
     } else {
         Vec::new()
-    }
-}
-
-fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
-    if len == 0 {
-        return None;
-    }
-    let cur = current.unwrap_or(0) as isize;
-    let len_i = len as isize;
-    Some(((cur + delta).rem_euclid(len_i)) as usize)
-}
-
-fn apply_key(mut state: UiState, len: usize, code: KeyCode) -> UiState {
-    match code {
-        KeyCode::Char('j') | KeyCode::Down => {
-            let next = move_selection(state.selected, len, 1);
-            state.selected = next;
-            state.list_state.select(next);
-            state
-        }
-        KeyCode::Char('k') | KeyCode::Up => {
-            let previous = move_selection(state.selected, len, -1);
-            state.selected = previous;
-            state.list_state.select(previous);
-            state
-        }
-        _ => state,
     }
 }
 
@@ -189,7 +168,7 @@ fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std:
     Ok(data)
 }
 
-fn refresh_data(
+pub fn refresh_data(
     client: &reqwest::blocking::Client,
     access_token: &agol::models::ArcGISAccessToken,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -209,6 +188,10 @@ fn refresh_data(
         layers_with_web_map_path,
         all_layers_with_web_maps,
     )?;
+
+    let current_time = get_current_time()?;
+
+    fs::write("data/last_sync.txt", current_time)?;
 
     Ok(())
 }
@@ -250,90 +233,30 @@ fn main() -> std::io::Result<()> {
                 Ok(agol_content) => {
                     let agol_content = filter_feature_services(&agol_content);
                     let mut ui_state = init_state(agol_content.len());
-                    let mut app_running = true;
 
-                    while app_running {
+                    while ui_state.running {
                         terminal.draw(|frame| ui(frame, &agol_content, &mut ui_state))?;
 
                         if let Event::Key(key) = event::read()? {
-                            match key.code {
-                                KeyCode::Char('q') => app_running = false,
-
-                                KeyCode::Char('j') | KeyCode::Down => {
-                                    ui_state = apply_key(ui_state, agol_content.len(), key.code)
-                                }
-
-                                KeyCode::Char('k') | KeyCode::Up => {
-                                    ui_state = apply_key(ui_state, agol_content.len(), key.code)
-                                }
-
-                                // KeyCode::Enter => {
-                                //     if let Some(item) = selected_item(&ui_state, &agol_content) {
-                                //         //todo use item id to fetch references and populate right widget
-                                //         println!("selected item id: {}", item.id);
-                                //         println!("last sync time: {:?}", ui_state.last_synced);
-                                //     }
-                                // }
-                                _ => {}
-                            }
+                            let action = action::handle_key(key.code);
+                            action::handle_action(
+                                &mut ui_state,
+                                agol_content.len(),
+                                action,
+                                &client,
+                                &access_token,
+                            );
                         }
                     }
                 }
-                Err(_) => {
-                    match refresh_data(&client, &access_token) {
-                        Ok(_) => {
-                            let agol_content_refresh = load_all_content_from_file().unwrap();
-                            let mut ui_state = init_state(agol_content_refresh.len());
-                            let mut app_running = true;
 
-                            while app_running {
-                                terminal.draw(|frame| {
-                                    ui(frame, &agol_content_refresh, &mut ui_state)
-                                })?;
+                Err(_) => match refresh_data(&client, &access_token) {
+                    Ok(_) => {}
 
-                                if let Event::Key(key) = event::read()? {
-                                    match key.code {
-                                        KeyCode::Char('q') => app_running = false,
-
-                                        KeyCode::Char('j') | KeyCode::Down => {
-                                            ui_state = apply_key(
-                                                ui_state,
-                                                agol_content_refresh.len(),
-                                                key.code,
-                                            )
-                                        }
-
-                                        KeyCode::Char('k') | KeyCode::Up => {
-                                            ui_state = apply_key(
-                                                ui_state,
-                                                agol_content_refresh.len(),
-                                                key.code,
-                                            )
-                                        }
-
-                                        KeyCode::Enter => {
-                                            if let Some(item) =
-                                                selected_item(&ui_state, &agol_content_refresh)
-                                            {
-                                                //todo use item id to fetch references and populate right widget
-                                                println!("selected item id: {}", item.id);
-                                                // println!(
-                                                // "last sync time: {:?}",
-                                                // ui_state.last_synced
-                                                // );
-                                            }
-                                        }
-
-                                        _ => {}
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("error refreshing data: {:?}", e);
-                        }
+                    Err(e) => {
+                        eprintln!("error refreshing data: {:?}", e);
                     }
-                }
+                },
             }
 
             ratatui::restore();

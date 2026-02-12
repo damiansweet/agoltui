@@ -1,0 +1,63 @@
+use crate::{UiState, read_last_sync, refresh_data};
+use crossterm::event::KeyCode;
+pub enum Action {
+    SyncData,
+    MoveSelectionDown,
+    MoveSelectionUp,
+    NoOp,
+    Quit,
+}
+
+fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
+    if len == 0 {
+        return None;
+    }
+    let cur = current.unwrap_or(0) as isize;
+    let len_i = len as isize;
+    Some(((cur + delta).rem_euclid(len_i)) as usize)
+}
+
+pub fn handle_key(key: KeyCode) -> Action {
+    let action = match key {
+        KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
+        KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
+        KeyCode::Enter => Action::SyncData,
+        KeyCode::Char('q') => Action::Quit,
+        _ => Action::NoOp,
+    };
+
+    action
+}
+
+pub fn handle_action(
+    state: &mut UiState,
+    len: usize,
+    action: Action,
+    client: &reqwest::blocking::Client,
+    access_token: &agol::models::ArcGISAccessToken,
+) {
+    match action {
+        Action::MoveSelectionDown => {
+            let next = move_selection(state.selected, len, 1);
+            state.selected = next;
+            state.list_state.select(next);
+        }
+        Action::MoveSelectionUp => {
+            let previous = move_selection(state.selected, len, -1);
+            state.selected = previous;
+            state.list_state.select(previous);
+        }
+        Action::SyncData => match refresh_data(client, access_token) {
+            Ok(_) => {
+                let last_sync = read_last_sync();
+                state.last_synced = last_sync;
+                state.list_state.select(None);
+            }
+            Err(_) => {}
+        },
+        Action::Quit => {
+            state.running = false;
+        }
+        _ => {}
+    }
+}
