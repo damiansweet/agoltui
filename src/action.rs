@@ -71,6 +71,8 @@ pub fn handle_action(
         Action::Quit => {
             state.running = false;
         }
+        //TODO create filter no references
+        //TODO create reset action back to all fc
         _ => {}
     }
 }
