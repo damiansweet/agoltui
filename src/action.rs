@@ -38,19 +38,18 @@ pub fn handle_key(key: KeyCode) -> Action {
 pub fn handle_action(
     state: &mut UiState,
     terminal: &mut Terminal<impl Backend>,
-    len: usize,
     action: Action,
     client: &reqwest::blocking::Client,
     access_token: &agol::models::ArcGISAccessToken,
 ) {
     match action {
         Action::MoveSelectionDown => {
-            let next = move_selection(state.selected, len, 1);
+            let next = move_selection(state.selected, state.agol_content.len(), 1);
             state.selected = next;
             state.list_state.select(next);
         }
         Action::MoveSelectionUp => {
-            let previous = move_selection(state.selected, len, -1);
+            let previous = move_selection(state.selected, state.agol_content.len(), -1);
             state.selected = previous;
             state.list_state.select(previous);
         }

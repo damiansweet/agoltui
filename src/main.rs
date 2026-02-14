@@ -293,7 +293,6 @@ fn main() -> std::io::Result<()> {
                             action::handle_action(
                                 &mut ui_state,
                                 &mut terminal,
-                                agol_content.len(),
                                 action,
                                 &client,
                                 &access_token,
