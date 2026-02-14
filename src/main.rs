@@ -16,8 +16,9 @@ mod action;
 
 //TODO display feature layer info that has the most references
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UiState {
+    agol_content: Vec<ArcGISSearchResults>,
     selected: Option<usize>,
     list_state: ListState,
     last_synced: String,
@@ -25,7 +26,11 @@ pub struct UiState {
     loading: bool,
 }
 
-fn init_state(len: usize) -> UiState {
+fn init_state(
+    len: usize,
+    client: &reqwest::blocking::Client,
+    access_token: &agol::models::ArcGISAccessToken,
+) -> UiState {
     let mut list_state = ListState::default();
     let selected = if len == 0 { None } else { Some(0) };
     list_state.select(selected);
@@ -33,7 +38,15 @@ fn init_state(len: usize) -> UiState {
     let running = true;
     let loading = false;
 
+    let agol_content = if let Ok(agol_content) = load_all_content_from_file() {
+        agol_content
+    } else {
+        let _ = refresh_data(&client, &access_token);
+        load_all_content_from_file().expect("unable to read from all content json")
+    };
+
     UiState {
+        agol_content,
         selected,
         list_state,
         last_synced,
@@ -58,6 +71,31 @@ pub fn read_last_sync() -> String {
             }
         }
         Err(_) => String::new(),
+    }
+}
+
+pub fn filter_layer_no_references() -> Vec<ArcGISSearchResults> {
+    if let Ok(file) = std::fs::read_to_string("data/all_layers_with_web_maps.json") {
+        let layers_with_references: HashMap<String, Vec<String>> =
+            serde_json::from_str(&file).expect("unable to convert json file to HashMap");
+        let empty_references: Vec<String> = layers_with_references
+            .into_iter()
+            .filter(|(_layer, references)| references.is_empty())
+            .map(|(layer, _references)| layer)
+            .collect();
+
+        if let Ok(file) = std::fs::read_to_string("data/all_agol_content.json") {
+            let all_content: Vec<ArcGISSearchResults> =
+                serde_json::from_str(&file).expect("unable to convert json to struct");
+            all_content
+                .into_iter()
+                .filter(|content| empty_references.contains(&content.id))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
     }
 }
 
@@ -91,11 +129,7 @@ fn selected_item<'a>(
     state.selected.and_then(|i| items.get(i))
 }
 
-fn ui(
-    frame: &mut Frame,
-    all_agol_content: &[agol::models::ArcGISSearchResults],
-    state: &mut UiState,
-) {
+fn ui(frame: &mut Frame, state: &mut UiState) {
     if state.loading {
         let loading_widget = Paragraph::new("Loading data, please wait...")
             .block(Block::bordered().title("Status"))
@@ -114,7 +148,8 @@ fn ui(
             ])
             .split(frame.area());
 
-        let all_content_ids: Vec<ListItem> = all_agol_content
+        let all_content_ids: Vec<ListItem> = state
+            .agol_content
             .iter()
             .map(|item| ListItem::new(item.id.clone()))
             .collect();
@@ -128,11 +163,11 @@ fn ui(
             .direction(ListDirection::TopToBottom);
 
         // let content_count = all_agol_content.len();
-        let selected_title = selected_item(state, all_agol_content)
+        let selected_title = selected_item(state, &state.agol_content)
             .map(|item| item.title.as_str())
             .unwrap_or_default();
 
-        let selected_owner = selected_item(state, all_agol_content)
+        let selected_owner = selected_item(state, &state.agol_content)
             .map(|item| item.owner.as_str())
             .unwrap_or_default();
         let last_sync = &state.last_synced.clone();
@@ -148,7 +183,7 @@ fn ui(
             .alignment(Alignment::Center);
 
         let widget_right = if let Some(selected_id) =
-            selected_item(state, all_agol_content).map(|item| item.id.as_str())
+            selected_item(state, &state.agol_content).map(|item| item.id.as_str())
         {
             let references = get_layer_references(selected_id);
             if references.len() >= 1 {
@@ -244,10 +279,10 @@ fn main() -> std::io::Result<()> {
             match all_agol_content {
                 Ok(agol_content) => {
                     let agol_content = filter_feature_services(&agol_content);
-                    let mut ui_state = init_state(agol_content.len());
+                    let mut ui_state = init_state(0, &client, &access_token);
 
                     while ui_state.running {
-                        terminal.draw(|frame| ui(frame, &agol_content, &mut ui_state))?;
+                        terminal.draw(|frame| ui(frame, &mut ui_state))?;
 
                         if let Event::Key(key) = event::read()? {
                             let action = action::handle_key(key.code);
@@ -255,7 +290,6 @@ fn main() -> std::io::Result<()> {
                                 &mut ui_state,
                                 &mut terminal,
                                 agol_content.len(),
-                                agol_content.clone(),
                                 action,
                                 &client,
                                 &access_token,

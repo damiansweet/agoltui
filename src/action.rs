@@ -1,11 +1,11 @@
-use crate::{UiState, read_last_sync, refresh_data, ui};
-use agol::models::ArcGISSearchResults;
+use crate::{UiState, filter_layer_no_references, read_last_sync, refresh_data, ui};
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
 pub enum Action {
     SyncData,
     MoveSelectionDown,
     MoveSelectionUp,
+    ZeroReferences,
     NoOp,
     Quit,
 }
@@ -24,6 +24,7 @@ pub fn handle_key(key: KeyCode) -> Action {
         KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
         KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
         KeyCode::Enter => Action::SyncData,
+        KeyCode::Char('0') => Action::ZeroReferences,
         KeyCode::Char('q') => Action::Quit,
         _ => Action::NoOp,
     };
@@ -35,7 +36,6 @@ pub fn handle_action(
     state: &mut UiState,
     terminal: &mut Terminal<impl Backend>,
     len: usize,
-    agol_content: Vec<ArcGISSearchResults>,
     action: Action,
     client: &reqwest::blocking::Client,
     access_token: &agol::models::ArcGISAccessToken,
@@ -55,7 +55,7 @@ pub fn handle_action(
             state.loading = true;
             terminal
                 .draw(|frame| {
-                    ui(frame, &agol_content, state);
+                    ui(frame, state);
                 })
                 .expect("failed to draw loading screen");
             match refresh_data(client, access_token) {
@@ -67,6 +67,10 @@ pub fn handle_action(
                 }
                 Err(_) => {}
             }
+        }
+        Action::ZeroReferences => {
+            let list_content = filter_layer_no_references();
+            state.agol_content = list_content;
         }
         Action::Quit => {
             state.running = false;
