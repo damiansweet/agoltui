@@ -279,7 +279,7 @@ fn main() -> std::io::Result<()> {
             match all_agol_content {
                 Ok(agol_content) => {
                     let agol_content = filter_feature_services(&agol_content);
-                    let mut ui_state = init_state(0, &client, &access_token);
+                    let mut ui_state = init_state(agol_content.len(), &client, &access_token);
 
                     while ui_state.running {
                         terminal.draw(|frame| ui(frame, &mut ui_state))?;

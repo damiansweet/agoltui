@@ -1,4 +1,7 @@
-use crate::{UiState, filter_layer_no_references, read_last_sync, refresh_data, ui};
+use crate::{
+    UiState, filter_layer_no_references, load_all_content_from_file, read_last_sync, refresh_data,
+    ui,
+};
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
 pub enum Action {
@@ -64,6 +67,7 @@ pub fn handle_action(
                     state.last_synced = last_sync;
                     state.list_state.select(None);
                     state.loading = false;
+                    state.agol_content = load_all_content_from_file().unwrap_or_default();
                 }
                 Err(_) => {}
             }
