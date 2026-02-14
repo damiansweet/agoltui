@@ -74,13 +74,14 @@ pub fn read_last_sync() -> String {
     }
 }
 
+//TODO test how many results come from this
 pub fn filter_layer_no_references() -> Vec<ArcGISSearchResults> {
     if let Ok(file) = std::fs::read_to_string("data/all_layers_with_web_maps.json") {
         let layers_with_references: HashMap<String, Vec<String>> =
             serde_json::from_str(&file).expect("unable to convert json file to HashMap");
-        let empty_references: Vec<String> = layers_with_references
+        let layer_with_references: Vec<String> = layers_with_references
             .into_iter()
-            .filter(|(_layer, references)| references.is_empty())
+            .filter(|(_layer, references)| !references.is_empty())
             .map(|(layer, _references)| layer)
             .collect();
 
@@ -89,7 +90,10 @@ pub fn filter_layer_no_references() -> Vec<ArcGISSearchResults> {
                 serde_json::from_str(&file).expect("unable to convert json to struct");
             all_content
                 .into_iter()
-                .filter(|content| empty_references.contains(&content.id))
+                .filter(|content| {
+                    !layer_with_references.contains(&content.id)
+                        && content.item_type == "Feature Service"
+                })
                 .collect()
         } else {
             Vec::new()

@@ -75,6 +75,12 @@ pub fn handle_action(
         Action::ZeroReferences => {
             let list_content = filter_layer_no_references();
             state.agol_content = list_content;
+            state.selected = if state.agol_content.is_empty() {
+                None
+            } else {
+                Some(0)
+            };
+            state.list_state.select(state.selected);
         }
         Action::Quit => {
             state.running = false;
