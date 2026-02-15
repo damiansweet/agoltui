@@ -16,7 +16,7 @@ mod action;
 
 //TODO display feature layer info that has the most references
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub struct UiState {
     agol_content: Vec<ArcGISSearchResults>,
     selected: Option<usize>,
@@ -26,6 +26,20 @@ pub struct UiState {
     loading: bool,
     search_popup: bool,
     username_popup: bool,
+    user_input: UserInput,
+}
+
+#[derive(Debug)]
+pub struct UserInput {
+    input: String,
+    character_index: usize,
+    input_mode: InputMode,
+}
+
+#[derive(Debug)]
+enum InputMode {
+    Normal,
+    Editing,
 }
 
 fn init_state(
@@ -41,6 +55,11 @@ fn init_state(
     let loading = false;
     let search_popup = false;
     let username_popup = false;
+    let user_input = UserInput {
+        input: String::new(),
+        input_mode: InputMode::Normal,
+        character_index: 0,
+    };
 
     let agol_content = if let Ok(agol_content) = load_all_content_from_file() {
         agol_content
@@ -58,6 +77,7 @@ fn init_state(
         loading,
         search_popup,
         username_popup,
+        user_input,
     }
 }
 
