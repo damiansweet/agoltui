@@ -146,8 +146,8 @@ fn ui(frame: &mut Frame, state: &mut UiState) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
-                Constraint::Percentage(50),
-                Constraint::Percentage(10),
+                Constraint::Percentage(40),
+                Constraint::Percentage(20),
                 Constraint::Percentage(40),
             ])
             .split(frame.area());
@@ -177,7 +177,7 @@ fn ui(frame: &mut Frame, state: &mut UiState) {
         let last_sync = &state.last_synced.clone();
 
         let layer_info_text = format!(
-            "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}"
+            "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references"
         );
 
         let widget_center = Paragraph::new(layer_info_text)
