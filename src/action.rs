@@ -10,6 +10,8 @@ pub enum Action {
     MoveSelectionUp,
     ZeroReferences,
     FilterByUsername,
+    SearchByKeyword,
+    Reset,
     NoOp,
     Quit,
 }
@@ -34,6 +36,32 @@ fn filter_by_username(state: &mut UiState, username: String) {
     state.agol_content = filtered_list;
 }
 
+fn search_by_keyword(state: &mut UiState, search_term: String) {
+    let search_results: Vec<agol::models::ArcGISSearchResults> = state
+        .agol_content
+        .iter()
+        .filter(|agol_item| {
+            agol_item
+                .title
+                .to_lowercase()
+                .contains(&search_term.to_lowercase())
+        })
+        .cloned()
+        .collect();
+
+    state.agol_content = search_results;
+}
+
+fn reset_filters(state: &mut UiState) {
+    let agol_content = load_all_content_from_file();
+
+    match agol_content {
+        Ok(content) => state.agol_content = content,
+        //TODO call refresh data if Err
+        Err(_) => {}
+    }
+}
+
 pub fn handle_key(key: KeyCode) -> Action {
     let action = match key {
         KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
@@ -41,6 +69,8 @@ pub fn handle_key(key: KeyCode) -> Action {
         KeyCode::Enter => Action::SyncData,
         KeyCode::Char('0') => Action::ZeroReferences,
         KeyCode::Char('f') => Action::FilterByUsername,
+        KeyCode::Char('s') => Action::SearchByKeyword,
+        KeyCode::Esc => Action::Reset,
         KeyCode::Char('q') => Action::Quit,
         _ => Action::NoOp,
     };
@@ -95,11 +125,15 @@ pub fn handle_action(
                 String::from("Damian.Sweet@cityoflonetree.com_CityofLoneTree"),
             );
         }
+        Action::SearchByKeyword => {
+            search_by_keyword(state, String::from("Boundary"));
+        }
+        Action::Reset => {
+            reset_filters(state);
+        }
         Action::Quit => {
             state.running = false;
         }
-        //TODO create filter no references
-        //TODO create reset action back to all fc
         _ => {}
     }
 }
