@@ -6,7 +6,7 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
 };
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -24,6 +24,8 @@ pub struct UiState {
     last_synced: String,
     running: bool,
     loading: bool,
+    search_popup: bool,
+    username_popup: bool,
 }
 
 fn init_state(
@@ -37,6 +39,8 @@ fn init_state(
     let last_synced = read_last_sync();
     let running = true;
     let loading = false;
+    let search_popup = false;
+    let username_popup = false;
 
     let agol_content = if let Ok(agol_content) = load_all_content_from_file() {
         agol_content
@@ -52,6 +56,8 @@ fn init_state(
         last_synced,
         running,
         loading,
+        search_popup,
+        username_popup,
     }
 }
 
@@ -205,11 +211,17 @@ fn ui(frame: &mut Frame, state: &mut UiState) {
             List::default()
         };
 
-        frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
+        if state.search_popup {
+            let block = Block::bordered().title("Search Term");
+            frame.render_widget(Clear, layout[1]);
+            frame.render_widget(block, layout[1])
+        } else {
+            frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
-        frame.render_widget(widget_center, layout[1]);
+            frame.render_widget(widget_center, layout[1]);
 
-        frame.render_widget(widget_right, layout[2]);
+            frame.render_widget(widget_right, layout[2]);
+        }
     }
 }
 

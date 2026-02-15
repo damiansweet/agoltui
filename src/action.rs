@@ -49,6 +49,7 @@ fn search_by_keyword(state: &mut UiState, search_term: String) {
         .cloned()
         .collect();
 
+    state.search_popup = true;
     state.agol_content = search_results;
 }
 
@@ -56,7 +57,10 @@ fn reset_filters(state: &mut UiState) {
     let agol_content = load_all_content_from_file();
 
     match agol_content {
-        Ok(content) => state.agol_content = content,
+        Ok(content) => {
+            state.agol_content = content;
+            state.search_popup = false;
+        }
         //TODO call refresh data if Err
         Err(_) => {}
     }
