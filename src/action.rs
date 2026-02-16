@@ -9,7 +9,7 @@ pub enum Action {
     MoveSelectionDown,
     MoveSelectionUp,
     ZeroReferences,
-    FilterByUsername,
+    FilterByUsernameCli,
     SearchByKeyword,
     Reset,
     NoOp,
@@ -25,7 +25,20 @@ fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<us
     Some(((cur + delta).rem_euclid(len_i)) as usize)
 }
 
-fn filter_by_username(state: &mut UiState, username: String) {
+fn filter_by_username_cli(state: &mut UiState) {
+    if let Some(email) = &state.cli_input.email {
+        let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
+            .agol_content
+            .iter()
+            .filter(|agol_item| agol_item.owner == format!("{email}_CityofLoneTree"))
+            .cloned()
+            .collect();
+
+        state.agol_content = filtered_list;
+    }
+}
+
+fn filter_by_username_widget(state: &mut UiState, username: String) {
     let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
         .agol_content
         .iter()
@@ -72,7 +85,7 @@ pub fn handle_key(key: KeyCode) -> Action {
         KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
         KeyCode::Enter => Action::SyncData,
         KeyCode::Char('0') => Action::ZeroReferences,
-        KeyCode::Char('f') => Action::FilterByUsername,
+        KeyCode::Char('f') => Action::FilterByUsernameCli,
         KeyCode::Char('s') => Action::SearchByKeyword,
         KeyCode::Esc => Action::Reset,
         KeyCode::Char('q') => Action::Quit,
@@ -123,11 +136,14 @@ pub fn handle_action(
             state.agol_content = list_content;
             state.list_state.select(None);
         }
-        Action::FilterByUsername => {
-            filter_by_username(
-                state,
-                String::from("Damian.Sweet@cityoflonetree.com_CityofLoneTree"),
-            );
+        // Action::FilterByUsername => {
+        //     filter_by_username(
+        //         state,
+        //         String::from("Damian.Sweet@cityoflonetree.com_CityofLoneTree"),
+        //     );
+        // }
+        Action::FilterByUsernameCli => {
+            filter_by_username_cli(state);
         }
         Action::SearchByKeyword => {
             search_by_keyword(state, String::from("Boundary"));

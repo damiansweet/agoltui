@@ -1,6 +1,7 @@
 use agol::filter_feature_services;
 use agol::models::ArcGISSearchResults;
 use chrono::Local;
+use clap::Parser;
 use crossterm::event::{self, Event};
 use ratatui::style::Style;
 use ratatui::{
@@ -27,6 +28,7 @@ pub struct UiState {
     search_popup: bool,
     username_popup: bool,
     user_input: UserInput,
+    cli_input: Args,
 }
 
 #[derive(Debug)]
@@ -42,10 +44,23 @@ enum InputMode {
     Editing,
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Email of the user to search
+    #[arg(short, long)]
+    email: Option<String>,
+
+    /// Search term to filter results
+    #[arg(short, long)]
+    search: Option<String>,
+}
+
 fn init_state(
     len: usize,
     client: &reqwest::blocking::Client,
     access_token: &agol::models::ArcGISAccessToken,
+    cli_input: Args,
 ) -> UiState {
     let mut list_state = ListState::default();
     let selected = if len == 0 { None } else { Some(0) };
@@ -78,6 +93,7 @@ fn init_state(
         search_popup,
         username_popup,
         user_input,
+        cli_input,
     }
 }
 
@@ -299,6 +315,7 @@ fn get_current_time() -> std::result::Result<String, Box<dyn std::error::Error>>
 }
 
 fn main() -> std::io::Result<()> {
+    let args = Args::parse();
     let mut terminal = ratatui::init();
     //TODO create a loading screen widget to display data is fetching in background
 
@@ -315,7 +332,7 @@ fn main() -> std::io::Result<()> {
             match all_agol_content {
                 Ok(agol_content) => {
                     let agol_content = filter_feature_services(&agol_content);
-                    let mut ui_state = init_state(agol_content.len(), &client, &access_token);
+                    let mut ui_state = init_state(agol_content.len(), &client, &access_token, args);
 
                     while ui_state.running {
                         terminal.draw(|frame| ui(frame, &mut ui_state))?;
