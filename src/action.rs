@@ -4,6 +4,7 @@ use crate::{
 };
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
+use std::collections::HashSet;
 pub enum Action {
     SyncData,
     MoveSelectionDown,
@@ -11,6 +12,7 @@ pub enum Action {
     ZeroReferences,
     FilterByUsernameCli,
     SearchByKeyword,
+    ListUsers,
     Reset,
     NoOp,
     Quit,
@@ -66,6 +68,18 @@ fn search_by_keyword(state: &mut UiState, search_term: String) {
     state.agol_content = search_results;
 }
 
+fn all_usernames(state: &mut UiState) {
+    let users: HashSet<String> = state
+        .agol_content
+        .iter()
+        .map(|agol_item| agol_item.owner.clone())
+        .collect();
+
+    if !users.is_empty() {
+        state.usernames.extend(users);
+    }
+}
+
 fn reset_filters(state: &mut UiState) {
     let agol_content = load_all_content_from_file();
 
@@ -73,6 +87,7 @@ fn reset_filters(state: &mut UiState) {
         Ok(content) => {
             state.agol_content = content;
             state.search_popup = false;
+            state.usernames.clear();
         }
         //TODO call refresh data if Err
         Err(_) => {}
@@ -87,6 +102,7 @@ pub fn handle_key(key: KeyCode) -> Action {
         KeyCode::Char('0') => Action::ZeroReferences,
         KeyCode::Char('f') => Action::FilterByUsernameCli,
         KeyCode::Char('s') => Action::SearchByKeyword,
+        KeyCode::Char('u') => Action::ListUsers,
         KeyCode::Esc => Action::Reset,
         KeyCode::Char('q') => Action::Quit,
         _ => Action::NoOp,
@@ -148,6 +164,7 @@ pub fn handle_action(
         Action::SearchByKeyword => {
             search_by_keyword(state, String::from("Boundary"));
         }
+        Action::ListUsers => all_usernames(state),
         Action::Reset => {
             reset_filters(state);
         }

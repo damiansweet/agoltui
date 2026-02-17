@@ -29,6 +29,7 @@ pub struct UiState {
     username_popup: bool,
     user_input: UserInput,
     cli_input: Args,
+    usernames: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -61,6 +62,9 @@ fn format_email(cli_input: &mut Args) {
         Some(email) if email.eq_ignore_ascii_case("damian.sweet@cityoflonetree.com") => {
             cli_input.email = Some("Damian.Sweet@cityoflonetree.com".to_string())
         }
+        Some(email) if email.eq_ignore_ascii_case("courtland.langley@cityoflonetree.com") => {
+            cli_input.email = Some("courtland.langley@cityoflonetree.com".to_string())
+        }
         _ => {}
     }
 }
@@ -84,6 +88,7 @@ fn init_state(
         input_mode: InputMode::Normal,
         character_index: 0,
     };
+    let usernames = Vec::new();
 
     let mut cli_input = cli_input;
     format_email(&mut cli_input);
@@ -106,6 +111,7 @@ fn init_state(
         username_popup,
         user_input,
         cli_input,
+        usernames,
     }
 }
 
@@ -195,6 +201,21 @@ fn ui(frame: &mut Frame, state: &mut UiState) {
             .alignment(Alignment::Center);
 
         frame.render_widget(loading_widget, frame.area())
+    } else if state.usernames.len() >= 1 {
+        let all_usernames: Vec<ListItem> = state
+            .usernames
+            .iter()
+            .map(|item| ListItem::new(item.as_str()))
+            .collect();
+
+        let widget_left = List::new(all_usernames)
+            .block(Block::bordered().title("All AGOL Content List"))
+            .style(Style::new().white())
+            .highlight_style(Style::new().italic())
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::TopToBottom);
+        frame.render_widget(widget_left, frame.area());
     } else {
         // let area = frame.area();
         let layout = Layout::default()
