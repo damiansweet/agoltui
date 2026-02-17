@@ -56,6 +56,15 @@ struct Args {
     search: Option<String>,
 }
 
+fn format_email(cli_input: &mut Args) {
+    match cli_input.email.as_deref() {
+        Some(email) if email.eq_ignore_ascii_case("damian.sweet@cityoflonetree.com") => {
+            cli_input.email = Some("Damian.Sweet@cityoflonetree.com".to_string())
+        }
+        _ => {}
+    }
+}
+
 fn init_state(
     len: usize,
     client: &reqwest::blocking::Client,
@@ -75,6 +84,9 @@ fn init_state(
         input_mode: InputMode::Normal,
         character_index: 0,
     };
+
+    let mut cli_input = cli_input;
+    format_email(&mut cli_input);
 
     let agol_content = if let Ok(agol_content) = load_all_content_from_file() {
         agol_content
