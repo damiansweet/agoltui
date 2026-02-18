@@ -1,18 +1,8 @@
 use agol::filter_feature_services;
-use agol::models::ArcGISSearchResults;
-use chrono::Local;
 use clap::Parser;
 use crossterm::event::{self, Event};
-use ratatui::style::Style;
-use ratatui::{
-    Frame,
-    layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
-};
-use std::collections::{HashMap, HashSet};
-use std::fs;
-use std::path::Path;
 
+use crate::ui::Args;
 mod action;
 
 //TODO display feature layer info that has the most references
@@ -358,38 +348,24 @@ fn main() -> std::io::Result<()> {
     match access_token {
         Ok(access_token) => {
             // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
-            let all_agol_content = load_all_content_from_file();
+            let _all_agol_content = utils::load_all_content_from_file();
             //TODO create function that refreshes content in json file and re-reads from same file
             //TODO show on bottom line last time data was synced
 
-            match all_agol_content {
-                Ok(agol_content) => {
-                    let agol_content = filter_feature_services(&agol_content);
-                    let mut ui_state = init_state(agol_content.len(), &client, &access_token, args);
+            let mut ui_state = ui::init_state(args);
+            while ui_state.running {
+                terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
-                    while ui_state.running {
-                        terminal.draw(|frame| ui(frame, &mut ui_state))?;
-
-                        if let Event::Key(key) = event::read()? {
-                            let action = action::handle_key(key.code);
-                            action::handle_action(
-                                &mut ui_state,
-                                &mut terminal,
-                                action,
-                                &client,
-                                &access_token,
-                            );
-                        }
-                    }
+                if let Event::Key(key) = event::read()? {
+                    let action = action::handle_key(key.code);
+                    action::handle_action(
+                        &mut ui_state,
+                        &mut terminal,
+                        action,
+                        &client,
+                        &access_token,
+                    );
                 }
-
-                Err(_) => match refresh_data(&client, &access_token) {
-                    Ok(_) => {}
-
-                    Err(e) => {
-                        eprintln!("error refreshing data: {:?}", e);
-                    }
-                },
             }
 
             ratatui::restore();

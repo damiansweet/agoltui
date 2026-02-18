@@ -1,7 +1,8 @@
-use crate::{
-    UiState, filter_layer_no_references, load_all_content_from_file, read_last_sync, refresh_data,
-    ui,
+use crate::ui::{UiState, ui};
+use crate::utils::{
+    filter_layer_no_references, load_all_content_from_file, read_last_sync, refresh_data,
 };
+
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
 use std::collections::HashSet;
@@ -131,6 +132,7 @@ pub fn handle_action(
         }
         Action::SyncData => {
             state.loading = true;
+            state.errors = crate::ui::Errors::None;
             terminal
                 .draw(|frame| {
                     ui(frame, state);
