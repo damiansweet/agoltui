@@ -1,8 +1,21 @@
+use crate::ui::Args;
 use agol::models::ArcGISSearchResults;
 use chrono::Local;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+
+pub fn format_email(cli_input: &mut Args) {
+    match cli_input.email.as_deref() {
+        Some(email) if email.eq_ignore_ascii_case("damian.sweet@cityoflonetree.com") => {
+            cli_input.email = Some("Damian.Sweet@cityoflonetree.com".to_string())
+        }
+        Some(email) if email.eq_ignore_ascii_case("courtland.langley@cityoflonetree.com") => {
+            cli_input.email = Some("courtland.langley@cityoflonetree.com".to_string())
+        }
+        _ => {}
+    }
+}
 
 pub fn read_last_sync() -> String {
     let file = std::fs::read_to_string("data/last_sync.txt");

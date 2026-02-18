@@ -20,6 +20,7 @@ pub struct UiState {
     pub search_popup: bool,
     pub username_popup: bool,
     pub user_input: UserInput,
+    pub usernames: Vec<String>,
     pub cli_input: Args,
     pub errors: Errors,
 }
@@ -72,6 +73,11 @@ pub fn init_state(cli_input: Args) -> UiState {
         character_index: 0,
     };
 
+    let usernames = Vec::new();
+
+    let mut cli_input = cli_input;
+    utils::format_email(&mut cli_input);
+
     let mut errors = Errors::default();
 
     let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
@@ -94,6 +100,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         username_popup,
         user_input,
         cli_input,
+        usernames,
         errors,
     }
 }
