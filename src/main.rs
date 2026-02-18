@@ -209,7 +209,7 @@ fn ui(frame: &mut Frame, state: &mut UiState) {
             .collect();
 
         let widget_left = List::new(all_usernames)
-            .block(Block::bordered().title("All AGOL Content List"))
+            .block(Block::bordered().title("Users with AGOL Content"))
             .style(Style::new().white())
             .highlight_style(Style::new().italic())
             .highlight_symbol(">>")
