@@ -147,6 +147,15 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     .alignment(Alignment::Center);
 
                 frame.render_widget(loading_widget, frame.area())
+            } else if state.usernames.len() > 0 {
+                let username_widget = List::new(state.usernames.clone())
+                    .block(Block::bordered().title("Usersnames with AGOL content"))
+                    .style(Style::new().white())
+                    .highlight_style(Style::new().italic())
+                    .highlight_symbol(">>")
+                    .repeat_highlight_symbol(true)
+                    .direction(ListDirection::TopToBottom);
+                frame.render_widget(username_widget, frame.area())
             } else {
                 // let area = frame.area();
                 let layout = Layout::default()
@@ -211,17 +220,17 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     List::default()
                 };
 
-                if state.search_popup {
-                    let block = Block::bordered().title("Search Term");
-                    frame.render_widget(Clear, layout[1]);
-                    frame.render_widget(block, layout[1])
-                } else {
-                    frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
+                // if state.search_popup {
+                // let block = Block::bordered().title("Search Term");
+                // frame.render_widget(Clear, layout[1]);
+                // frame.render_widget(block, layout[1])
+                // } else {
+                frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
-                    frame.render_widget(widget_center, layout[1]);
+                frame.render_widget(widget_center, layout[1]);
 
-                    frame.render_widget(widget_right, layout[2]);
-                }
+                frame.render_widget(widget_right, layout[2]);
+                // }
             }
         }
     }
