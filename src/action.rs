@@ -5,7 +5,7 @@ use crate::utils::{
 
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 pub enum Action {
     SyncData,
     MoveSelectionDown,
@@ -70,15 +70,13 @@ fn search_by_keyword(state: &mut UiState, search_term: String) {
 }
 
 fn all_usernames(state: &mut UiState) {
-    let users: HashSet<String> = state
-        .agol_content
-        .iter()
-        .map(|agol_item| agol_item.owner.clone())
-        .collect();
-
-    if !users.is_empty() {
-        state.usernames.extend(users);
-    }
+    state.agol_content.iter().for_each(|agol_item| {
+        state
+            .usernames
+            .entry(agol_item.owner.clone())
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    });
 }
 
 fn reset_filters(state: &mut UiState) {

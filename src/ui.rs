@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use agol::models::ArcGISSearchResults;
 use clap::Parser;
 
@@ -6,7 +8,9 @@ use ratatui::style::Style;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    widgets::{Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Wrap},
+    widgets::{
+        Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, Wrap,
+    },
 };
 
 #[derive(Debug)]
@@ -20,7 +24,7 @@ pub struct UiState {
     pub search_popup: bool,
     pub username_popup: bool,
     pub user_input: UserInput,
-    pub usernames: Vec<String>,
+    pub usernames: HashMap<String, u16>,
     pub cli_input: Args,
     pub errors: Errors,
 }
@@ -73,7 +77,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         character_index: 0,
     };
 
-    let usernames = Vec::new();
+    let usernames = HashMap::new();
 
     let mut cli_input = cli_input;
     utils::format_email(&mut cli_input);
@@ -148,13 +152,17 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                 frame.render_widget(loading_widget, frame.area())
             } else if state.usernames.len() > 0 {
-                let username_widget = List::new(state.usernames.clone())
-                    .block(Block::bordered().title("Usersnames with AGOL content"))
-                    .style(Style::new().white())
-                    .highlight_style(Style::new().italic())
-                    .highlight_symbol(">>")
-                    .repeat_highlight_symbol(true)
-                    .direction(ListDirection::TopToBottom);
+                let rows: Vec<Row> = state
+                    .usernames
+                    .iter()
+                    .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
+                    .collect();
+
+                let widths = [Constraint::Length(60), Constraint::Length(20)];
+                let username_widget = Table::new(rows, widths)
+                    .column_spacing(1)
+                    .style(Style::new().blue())
+                    .header(Row::new(vec!["Username", "# of Items"]));
                 frame.render_widget(username_widget, frame.area())
             } else {
                 // let area = frame.area();
