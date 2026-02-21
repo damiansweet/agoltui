@@ -169,7 +169,8 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     .column_spacing(1)
                     .style(Style::new().blue())
                     .highlight_symbol(">>")
-                    .header(Row::new(vec!["Username", "# of Items"]));
+                    .header(Row::new(vec!["Username", "# of Items"]))
+                    .block(Block::new().title("Usernames Table"));
                 frame.render_stateful_widget(
                     username_widget,
                     frame.area(),
