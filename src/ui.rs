@@ -64,7 +64,7 @@ pub struct Args {
 }
 pub fn init_state(cli_input: Args) -> UiState {
     let mut list_state = ListState::default();
-    let selected = None;
+    let selected = Some(0);
     list_state.select(selected);
     let last_synced = utils::read_last_sync();
     let running = true;
