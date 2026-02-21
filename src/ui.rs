@@ -9,7 +9,8 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
     widgets::{
-        Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, Wrap,
+        Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
+        Wrap,
     },
 };
 
@@ -25,6 +26,7 @@ pub struct UiState {
     pub username_popup: bool,
     pub user_input: UserInput,
     pub usernames: HashMap<String, u16>,
+    pub username_state: TableState,
     pub cli_input: Args,
     pub errors: Errors,
 }
@@ -79,6 +81,9 @@ pub fn init_state(cli_input: Args) -> UiState {
 
     let usernames = HashMap::new();
 
+    let mut username_state = TableState::default();
+    username_state.select(Some(0));
+
     let mut cli_input = cli_input;
     utils::format_email(&mut cli_input);
 
@@ -105,6 +110,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         user_input,
         cli_input,
         usernames,
+        username_state,
         errors,
     }
 }
@@ -162,8 +168,13 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                 let username_widget = Table::new(rows, widths)
                     .column_spacing(1)
                     .style(Style::new().blue())
+                    .highlight_symbol(">>")
                     .header(Row::new(vec!["Username", "# of Items"]));
-                frame.render_widget(username_widget, frame.area())
+                frame.render_stateful_widget(
+                    username_widget,
+                    frame.area(),
+                    &mut state.username_state,
+                )
             } else {
                 // let area = frame.area();
                 let layout = Layout::default()
