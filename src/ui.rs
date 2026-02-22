@@ -122,6 +122,8 @@ fn selected_item<'a>(
     state.selected.and_then(|i| items.get(i))
 }
 
+// ERROR WIDGETS
+
 fn no_existing_data_widget() -> Paragraph<'static> {
     Paragraph::new("Welcome to AgolTUI :)\n Please press Enter to fetch AGOL content")
         .block(Block::bordered())
@@ -135,6 +137,15 @@ fn no_access_token_error_widget() -> Paragraph<'static> {
         .style(Style::new().red())
         .alignment(Alignment::Center)
 }
+
+fn email_not_found_widget() -> Paragraph<'static> {
+    Paragraph::new("No username found")
+        .block(Block::bordered().title("Error"))
+        .style(Style::new().red())
+        .alignment(Alignment::Center)
+}
+
+// SUCCESS WIDGETS
 
 fn loading_screen_widget() -> Paragraph<'static> {
     Paragraph::new("Loading data, please wait...")
@@ -156,12 +167,8 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             frame.render_widget(no_access_token_error_widget, frame.area())
         }
         Errors::EmailNotFound => {
-            let error_widget = Paragraph::new("No username found")
-                .block(Block::bordered().title("Error"))
-                .style(Style::new().red())
-                .alignment(Alignment::Center);
-
-            frame.render_widget(error_widget, frame.area())
+            let email_not_found_widget = email_not_found_widget();
+            frame.render_widget(email_not_found_widget, frame.area())
         }
         Errors::None => {
             if state.loading {

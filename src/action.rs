@@ -30,6 +30,7 @@ fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<us
 
 fn filter_by_username_cli(state: &mut UiState) {
     if let Some(email) = &state.cli_input.email {
+        //TODO verify email is in org
         let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
             .agol_content
             .iter()
