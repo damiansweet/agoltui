@@ -140,7 +140,7 @@ pub fn handle_action(
                 Ok(_) => {
                     let last_sync = read_last_sync();
                     state.last_synced = last_sync;
-                    state.list_state.select(None);
+                    state.list_state.select(Some(0));
                     state.loading = false;
                     state.agol_content = load_all_content_from_file().unwrap_or_default();
                 }

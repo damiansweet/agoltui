@@ -122,16 +122,19 @@ fn selected_item<'a>(
     state.selected.and_then(|i| items.get(i))
 }
 
+fn no_existing_data_widget() -> Paragraph<'static> {
+    Paragraph::new("Welcome to AgolTUI :)\n Please press Enter to fetch AGOL content")
+        .block(Block::bordered())
+        .style(Style::new().red())
+        .alignment(Alignment::Center)
+}
+
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
     match state.errors {
         Errors::NoExistingData => {
-            let error_widget =
-                Paragraph::new("No Existing Data Found\n Please press Enter to fetch AGOL content")
-                    .block(Block::bordered().title("Error"))
-                    .style(Style::new().red())
-                    .alignment(Alignment::Center);
+            let no_existing_data_widget = no_existing_data_widget();
 
-            frame.render_widget(error_widget, frame.area())
+            frame.render_widget(no_existing_data_widget, frame.area())
         }
         Errors::NoAccessToken => {
             let error_widget = Paragraph::new("No Access Token Found")
