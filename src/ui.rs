@@ -129,6 +129,13 @@ fn no_existing_data_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+fn no_access_token_error_widget() -> Paragraph<'static> {
+    Paragraph::new("No Access Token Found")
+        .block(Block::bordered().title("Error"))
+        .style(Style::new().red())
+        .alignment(Alignment::Center)
+}
+
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
     match state.errors {
         Errors::NoExistingData => {
@@ -137,12 +144,9 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             frame.render_widget(no_existing_data_widget, frame.area())
         }
         Errors::NoAccessToken => {
-            let error_widget = Paragraph::new("No Access Token Found")
-                .block(Block::bordered().title("Error"))
-                .style(Style::new().red())
-                .alignment(Alignment::Center);
+            let no_access_token_error_widget = no_access_token_error_widget();
 
-            frame.render_widget(error_widget, frame.area())
+            frame.render_widget(no_access_token_error_widget, frame.area())
         }
         Errors::EmailNotFound => {
             let error_widget = Paragraph::new("No username found")
