@@ -136,6 +136,13 @@ fn no_access_token_error_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+fn loading_screen_widget() -> Paragraph<'static> {
+    Paragraph::new("Loading data, please wait...")
+        .block(Block::bordered())
+        .style(Style::new().yellow())
+        .alignment(Alignment::Center)
+}
+
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
     match state.errors {
         Errors::NoExistingData => {
@@ -158,12 +165,8 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         }
         Errors::None => {
             if state.loading {
-                let loading_widget = Paragraph::new("Loading data, please wait...")
-                    .block(Block::bordered().title("Status"))
-                    .style(Style::new().yellow())
-                    .alignment(Alignment::Center);
-
-                frame.render_widget(loading_widget, frame.area())
+                let loading_screen_widget = loading_screen_widget();
+                frame.render_widget(loading_screen_widget, frame.area())
             } else if state.usernames.len() > 0 {
                 let rows: Vec<Row> = state
                     .usernames
