@@ -39,6 +39,7 @@ fn filter_by_username_cli(state: &mut UiState) {
             .collect();
 
         state.agol_content = filtered_list;
+        state.queries.push(format!("Username == {email}"));
     }
 }
 
@@ -88,6 +89,7 @@ fn reset_filters(state: &mut UiState) {
             state.agol_content = content;
             state.search_popup = false;
             state.usernames.clear();
+            state.queries.clear();
         }
         //TODO call refresh data if Err
         Err(_) => {}
@@ -152,6 +154,7 @@ pub fn handle_action(
             let list_content = filter_layer_no_references();
             state.agol_content = list_content;
             state.list_state.select(None);
+            state.queries.push(String::from("Zero References"));
         }
         // Action::FilterByUsername => {
         //     filter_by_username(

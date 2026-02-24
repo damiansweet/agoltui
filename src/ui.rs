@@ -29,6 +29,7 @@ pub struct UiState {
     pub username_state: TableState,
     pub cli_input: Args,
     pub errors: Option<Errors>,
+    pub queries: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -87,6 +88,8 @@ pub fn init_state(cli_input: Args) -> UiState {
 
     let mut errors = None;
 
+    let queries = Vec::new();
+
     let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
         agol_content
     } else {
@@ -110,6 +113,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         usernames,
         username_state,
         errors,
+        queries,
     }
 }
 
@@ -228,8 +232,10 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     .unwrap_or_default();
                 let last_sync = &state.last_synced.clone();
 
+                let queries = &state.queries.join(" && ");
+
                 let layer_info_text = format!(
-                    "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references"
+                    "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references\nCurrent Query: {queries}"
                 );
 
                 let widget_center = Paragraph::new(layer_info_text)
