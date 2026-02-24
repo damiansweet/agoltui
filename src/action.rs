@@ -5,7 +5,7 @@ use crate::utils::{
 
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
-use std::collections::{HashMap, HashSet};
+
 pub enum Action {
     SyncData,
     MoveSelectionDown,
@@ -131,7 +131,7 @@ pub fn handle_action(
         }
         Action::SyncData => {
             state.loading = true;
-            state.errors = crate::ui::Errors::None;
+            state.errors = None;
             terminal
                 .draw(|frame| {
                     ui(frame, state);

@@ -19,8 +19,6 @@ fn main() -> std::io::Result<()> {
         Ok(access_token) => {
             // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
             let _all_agol_content = utils::load_all_content_from_file();
-            //TODO create function that refreshes content in json file and re-reads from same file
-            //TODO show on bottom line last time data was synced
 
             let mut ui_state = ui::init_state(args);
             while ui_state.running {

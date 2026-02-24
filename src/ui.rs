@@ -28,7 +28,7 @@ pub struct UiState {
     pub usernames: HashMap<String, u16>,
     pub username_state: TableState,
     pub cli_input: Args,
-    pub errors: Errors,
+    pub errors: Option<Errors>,
 }
 
 #[derive(Debug)]
@@ -44,13 +44,11 @@ pub enum InputMode {
     Editing,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub enum Errors {
     NoAccessToken,
     EmailNotFound,
     NoExistingData,
-    #[default]
-    None,
 }
 
 #[derive(Parser, Debug)]
@@ -87,12 +85,12 @@ pub fn init_state(cli_input: Args) -> UiState {
     let mut cli_input = cli_input;
     utils::format_email(&mut cli_input);
 
-    let mut errors = Errors::default();
+    let mut errors = None;
 
     let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
         agol_content
     } else {
-        errors = Errors::NoExistingData;
+        errors = Some(Errors::NoExistingData);
         Vec::new()
         // let _ = utils::refresh_data(&client, &access_token);
         // utils::load_all_content_from_file().expect("unable to read from all content json")
@@ -154,23 +152,25 @@ fn loading_screen_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+//TODO create widget that shows filter/search combos at bottom of screen
+
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
     match state.errors {
-        Errors::NoExistingData => {
+        Some(Errors::NoExistingData) => {
             let no_existing_data_widget = no_existing_data_widget();
 
             frame.render_widget(no_existing_data_widget, frame.area())
         }
-        Errors::NoAccessToken => {
+        Some(Errors::NoAccessToken) => {
             let no_access_token_error_widget = no_access_token_error_widget();
 
             frame.render_widget(no_access_token_error_widget, frame.area())
         }
-        Errors::EmailNotFound => {
+        Some(Errors::EmailNotFound) => {
             let email_not_found_widget = email_not_found_widget();
             frame.render_widget(email_not_found_widget, frame.area())
         }
-        Errors::None => {
+        None => {
             if state.loading {
                 let loading_screen_widget = loading_screen_widget();
                 frame.render_widget(loading_screen_widget, frame.area())
