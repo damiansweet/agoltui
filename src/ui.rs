@@ -52,7 +52,7 @@ pub enum Errors {
     NoExistingData,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Email of the user to search
@@ -72,8 +72,11 @@ pub fn init_state(cli_input: Args) -> UiState {
     let loading = false;
     let search_popup = false;
     let username_popup = false;
+
+    let cli_search_term = cli_input.email.clone();
+
     let user_input = UserInput {
-        input: String::new(),
+        input: cli_search_term.unwrap_or_default(),
         input_mode: InputMode::Normal,
         character_index: 0,
     };
@@ -82,9 +85,6 @@ pub fn init_state(cli_input: Args) -> UiState {
 
     let mut username_state = TableState::default();
     username_state.select(Some(0));
-
-    let mut cli_input = cli_input;
-    utils::format_email(&mut cli_input);
 
     let mut errors = None;
 
@@ -175,105 +175,108 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             frame.render_widget(email_not_found_widget, frame.area())
         }
         None => {
-            if state.loading {
-                let loading_screen_widget = loading_screen_widget();
-                frame.render_widget(loading_screen_widget, frame.area())
-            } else if state.usernames.len() > 0 {
-                let rows: Vec<Row> = state
-                    .usernames
-                    .iter()
-                    .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
-                    .collect();
-
-                let widths = [Constraint::Length(60), Constraint::Length(20)];
-                let username_widget = Table::new(rows, widths)
-                    .column_spacing(1)
-                    .style(Style::new().blue())
-                    .highlight_symbol(">>")
-                    .header(Row::new(vec!["Username", "# of Items"]))
-                    .block(Block::new().title("Usernames Table"));
-                frame.render_stateful_widget(
-                    username_widget,
-                    frame.area(),
-                    &mut state.username_state,
-                )
+            if state.search_popup {
+                let block = Block::bordered().title("Search Term");
+                frame.render_widget(Clear, frame.area());
+                frame.render_widget(block, frame.area());
             } else {
-                // let area = frame.area();
-                let layout = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints(vec![
-                        Constraint::Percentage(40),
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(40),
-                    ])
-                    .split(frame.area());
+                if state.loading {
+                    let loading_screen_widget = loading_screen_widget();
+                    frame.render_widget(loading_screen_widget, frame.area())
+                } else if state.usernames.len() > 0 {
+                    let rows: Vec<Row> = state
+                        .usernames
+                        .iter()
+                        .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
+                        .collect();
 
-                let all_content_ids: Vec<ListItem> = state
-                    .agol_content
-                    .iter()
-                    .map(|item| ListItem::new(item.id.clone()))
-                    .collect();
+                    let widths = [Constraint::Length(60), Constraint::Length(20)];
+                    let username_widget = Table::new(rows, widths)
+                        .column_spacing(1)
+                        .style(Style::new().blue())
+                        .highlight_symbol(">>")
+                        .header(Row::new(vec!["Username", "# of Items"]))
+                        .block(Block::new().title("Usernames Table"));
+                    frame.render_stateful_widget(
+                        username_widget,
+                        frame.area(),
+                        &mut state.username_state,
+                    )
+                } else {
+                    // let area = frame.area();
+                    let layout = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints(vec![
+                            Constraint::Percentage(40),
+                            Constraint::Percentage(20),
+                            Constraint::Percentage(40),
+                        ])
+                        .split(frame.area());
 
-                let widget_left = List::new(all_content_ids)
-                    .block(Block::bordered().title("All AGOL Content List"))
-                    .style(Style::new().white())
-                    .highlight_style(Style::new().italic())
-                    .highlight_symbol(">>")
-                    .repeat_highlight_symbol(true)
-                    .direction(ListDirection::TopToBottom);
+                    let all_content_ids: Vec<ListItem> = state
+                        .agol_content
+                        .iter()
+                        .map(|item| ListItem::new(item.id.clone()))
+                        .collect();
 
-                // let content_count = all_agol_content.len();
-                let selected_title = selected_item(state, &state.agol_content)
-                    .map(|item| item.title.as_str())
-                    .unwrap_or_default();
+                    let widget_left = List::new(all_content_ids)
+                        .block(Block::bordered().title("All AGOL Content List"))
+                        .style(Style::new().white())
+                        .highlight_style(Style::new().italic())
+                        .highlight_symbol(">>")
+                        .repeat_highlight_symbol(true)
+                        .direction(ListDirection::TopToBottom);
 
-                let selected_owner = selected_item(state, &state.agol_content)
-                    .map(|item| item.owner.as_str())
-                    .unwrap_or_default();
-                let last_sync = &state.last_synced.clone();
+                    // let content_count = all_agol_content.len();
+                    let selected_title = selected_item(state, &state.agol_content)
+                        .map(|item| item.title.as_str())
+                        .unwrap_or_default();
 
-                let queries = &state.queries.join(" && ");
+                    let selected_owner = selected_item(state, &state.agol_content)
+                        .map(|item| item.owner.as_str())
+                        .unwrap_or_default();
+                    let last_sync = &state.last_synced.clone();
 
-                let layer_info_text = format!(
-                    "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references\nCurrent Query: {queries}"
-                );
+                    let queries = &state.queries.join(" && ");
 
-                let widget_center = Paragraph::new(layer_info_text)
-                    .wrap(Wrap { trim: true })
-                    .block(Block::bordered().title("Layer Info"))
-                    .style(Style::new().white())
-                    .alignment(Alignment::Center);
+                    let layer_info_text = format!(
+                        "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references\nCurrent Query: {queries}"
+                    );
 
-                let widget_right = if let Some(selected_id) =
-                    selected_item(state, &state.agol_content).map(|item| item.id.as_str())
-                {
-                    let references = utils::get_layer_references(selected_id);
-                    if references.len() >= 1 {
-                        List::new(references)
-                            .block(Block::bordered().title("References"))
-                            .style(Style::new().blue())
-                            .direction(ListDirection::TopToBottom)
+                    let widget_center = Paragraph::new(layer_info_text)
+                        .wrap(Wrap { trim: true })
+                        .block(Block::bordered().title("Layer Info"))
+                        .style(Style::new().white())
+                        .alignment(Alignment::Center);
+
+                    let widget_right = if let Some(selected_id) =
+                        selected_item(state, &state.agol_content).map(|item| item.id.as_str())
+                    {
+                        let references = utils::get_layer_references(selected_id);
+                        if references.len() >= 1 {
+                            List::new(references)
+                                .block(Block::bordered().title("References"))
+                                .style(Style::new().blue())
+                                .direction(ListDirection::TopToBottom)
+                        } else {
+                            List::default()
+                                .block(Block::bordered().title("No References"))
+                                .style(Style::new().red())
+                                .direction(ListDirection::TopToBottom)
+                        }
                     } else {
                         List::default()
-                            .block(Block::bordered().title("No References"))
-                            .style(Style::new().red())
-                            .direction(ListDirection::TopToBottom)
-                    }
-                } else {
-                    List::default()
-                };
+                    };
 
-                // if state.search_popup {
-                // let block = Block::bordered().title("Search Term");
-                // frame.render_widget(Clear, layout[1]);
-                // frame.render_widget(block, layout[1])
-                // } else {
-                frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
+                    // if state.search_popup {
+                    // } else {
+                    frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
 
-                frame.render_widget(widget_center, layout[1]);
+                    frame.render_widget(widget_center, layout[1]);
 
-                frame.render_widget(widget_right, layout[2]);
-                // }
+                    frame.render_widget(widget_right, layout[2]);
+                    // }
+                }
             }
         }
     }

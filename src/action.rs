@@ -1,6 +1,7 @@
-use crate::ui::{UiState, ui};
+use crate::ui::{InputMode, UiState, ui};
 use crate::utils::{
-    filter_layer_no_references, load_all_content_from_file, read_last_sync, refresh_data,
+    filter_layer_no_references, format_email, load_all_content_from_file, read_last_sync,
+    refresh_data,
 };
 
 use crossterm::event::KeyCode;
@@ -28,9 +29,62 @@ fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<us
     Some(((cur + delta).rem_euclid(len_i)) as usize)
 }
 
+fn move_search_cursor_left(state: &mut UiState) {
+    let cursor_moved_left = state.user_input.character_index.saturating_sub(1);
+    state.user_input.character_index = clamp_cursor(state, cursor_moved_left);
+}
+
+fn move_search_cursor_right(state: &mut UiState) {
+    let cursor_moved_right = state.user_input.character_index.saturating_add(1);
+    state.user_input.character_index = clamp_cursor(state, cursor_moved_right);
+}
+
+fn byte_index(state: &UiState) -> usize {
+    state
+        .user_input
+        .input
+        .char_indices()
+        .map(|(i, _)| i)
+        .nth(state.user_input.character_index)
+        .unwrap_or(state.user_input.input.len())
+}
+
+fn delete_char(state: &mut UiState) {
+    let is_not_cursor_leftmost = state.user_input.character_index != 0;
+    if is_not_cursor_leftmost {
+        let current_index = state.user_input.character_index;
+        let from_left_to_current_index = current_index - 1;
+
+        let before_char_to_delete = state
+            .user_input
+            .input
+            .chars()
+            .take(from_left_to_current_index);
+
+        let after_char_to_delete = state.user_input.input.chars().skip(current_index);
+
+        state.user_input.input = before_char_to_delete.chain(after_char_to_delete).collect();
+        move_search_cursor_left(state);
+    }
+}
+
+fn submit_user_input_search(state: &mut UiState) {
+    search_by_keyword(state);
+    state.user_input.input_mode = InputMode::Normal;
+}
+
+fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
+    new_cursor_pos.clamp(0, state.user_input.input.chars().count())
+}
+
+fn reset_cursor(state: &mut UiState) {
+    state.user_input.character_index = 0;
+}
+
 fn filter_by_username_cli(state: &mut UiState) {
     if let Some(email) = &state.cli_input.email {
         //TODO verify email is in org
+        let email = format_email(email);
         let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
             .agol_content
             .iter()
@@ -54,7 +108,7 @@ fn filter_by_username_widget(state: &mut UiState, username: String) {
     state.agol_content = filtered_list;
 }
 
-fn search_by_keyword(state: &mut UiState, search_term: String) {
+fn search_by_keyword(state: &mut UiState) {
     let search_results: Vec<agol::models::ArcGISSearchResults> = state
         .agol_content
         .iter()
@@ -62,13 +116,17 @@ fn search_by_keyword(state: &mut UiState, search_term: String) {
             agol_item
                 .title
                 .to_lowercase()
-                .contains(&search_term.to_lowercase())
+                .contains(&state.user_input.input.to_lowercase())
         })
         .cloned()
         .collect();
 
-    state.search_popup = true;
+    state.search_popup = false;
     state.agol_content = search_results;
+}
+
+fn launch_search(state: &mut UiState) {
+    state.search_popup = true;
 }
 
 fn all_usernames(state: &mut UiState) {
@@ -166,7 +224,8 @@ pub fn handle_action(
             filter_by_username_cli(state);
         }
         Action::SearchByKeyword => {
-            search_by_keyword(state, String::from("Boundary"));
+            launch_search(state);
+            // search_by_keyword(state);
         }
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
