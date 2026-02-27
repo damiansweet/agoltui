@@ -85,6 +85,7 @@ pub fn init_state(cli_input: Args) -> UiState {
 
     let cli_search_term = cli_input.email.clone();
 
+    //TODO put in logic to set user_input dynamically based on clap arguments passed in
     let user_input = UserInput {
         input: cli_search_term.unwrap_or_default(),
         character_index: 0,
