@@ -124,16 +124,21 @@ fn search_by_username(state: &mut UiState) {
 
 fn search_by_keyword(state: &mut UiState) {
     let query = &state.user_input.input.to_lowercase();
-    let search_results: Vec<agol::models::ArcGISSearchResults> = state
-        .agol_content
-        .iter()
-        .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
-        .cloned()
-        .collect();
 
-    state.search_popup = false;
-    state.queries.push(format!("Title ILIKE '%{query}%'"));
-    state.agol_content = search_results;
+    if query.len() >= 3 && query.len() <= 50 {
+        let search_results: Vec<agol::models::ArcGISSearchResults> = state
+            .agol_content
+            .iter()
+            .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
+            .cloned()
+            .collect();
+
+        state.search_popup = false;
+        state.queries.push(format!("Title ILIKE '%{query}%'"));
+        state.agol_content = search_results;
+    } else {
+        state.errors = Some(crate::ui::Errors::InvalidUserInput);
+    }
 }
 
 fn flip_input_mode(state: &mut UiState) {
@@ -174,6 +179,7 @@ fn reset_filters(state: &mut UiState) {
             state.search_popup = false;
             state.usernames.clear();
             state.queries.clear();
+            state.errors = None;
         }
         //TODO call refresh data if Err
         Err(_) => {}

@@ -23,7 +23,6 @@ pub struct UiState {
     pub running: bool,
     pub loading: bool,
     pub search_popup: bool,
-    pub username_popup: bool,
     pub user_input: UserInput,
     pub search_type: SearchType,
     pub input_mode: InputMode,
@@ -59,6 +58,7 @@ pub enum Errors {
     NoAccessToken,
     EmailNotFound,
     NoExistingData,
+    InvalidUserInput,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -119,7 +119,6 @@ pub fn init_state(cli_input: Args) -> UiState {
         running,
         loading,
         search_popup,
-        username_popup,
         user_input,
         input_mode,
         search_type,
@@ -161,6 +160,13 @@ fn email_not_found_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+fn invalid_user_input_widget() -> Paragraph<'static> {
+    Paragraph::new("Query must be between 3-50 characters")
+        .block(Block::bordered().title("Error"))
+        .style(Style::new().red())
+        .alignment(Alignment::Center)
+}
+
 // SUCCESS WIDGETS
 
 fn loading_screen_widget() -> Paragraph<'static> {
@@ -187,6 +193,9 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         Some(Errors::EmailNotFound) => {
             let email_not_found_widget = email_not_found_widget();
             frame.render_widget(email_not_found_widget, frame.area())
+        }
+        Some(Errors::InvalidUserInput) => {
+            frame.render_widget(invalid_user_input_widget(), frame.area());
         }
         None => {
             if state.search_popup {
