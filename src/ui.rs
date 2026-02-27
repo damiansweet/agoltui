@@ -80,7 +80,6 @@ pub fn init_state(cli_input: Args) -> UiState {
     let running = true;
     let loading = false;
     let search_popup = false;
-    let username_popup = false;
     let input_mode = InputMode::Normal;
 
     let cli_search_term = cli_input.email.clone();
@@ -201,8 +200,10 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             if state.search_popup {
                 let user_input = match state.search_type {
                     SearchType::Title => Paragraph::new(state.user_input.input.as_str())
+                        .style(Style::new().light_blue())
                         .block(Block::bordered().title("Enter Search Term")),
                     SearchType::Owner => Paragraph::new(state.user_input.input.as_str())
+                        .style(Style::new().yellow())
                         .block(Block::bordered().title("Enter Username")),
                 };
 
@@ -259,7 +260,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .collect();
 
                     let widget_left = List::new(all_content_ids)
-                        .block(Block::bordered().title("All AGOL Content List"))
+                        .block(
+                            Block::bordered()
+                                .title_alignment(Alignment::Center)
+                                .title("All AGOL Content List"),
+                        )
                         .style(Style::new().white())
                         .highlight_style(Style::new().italic())
                         .highlight_symbol(">>")
