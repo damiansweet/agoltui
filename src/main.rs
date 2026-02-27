@@ -25,7 +25,7 @@ fn main() -> std::io::Result<()> {
                 terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
                 if let Event::Key(key) = event::read()? {
-                    let action = action::handle_key(key.code);
+                    let action = action::handle_key(&ui_state, key.code);
                     action::handle_action(
                         &mut ui_state,
                         &mut terminal,

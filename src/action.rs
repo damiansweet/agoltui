@@ -18,6 +18,12 @@ pub enum Action {
     Reset,
     NoOp,
     Quit,
+    UserInputEnterChar(char),
+    UserInputDeleteChar,
+    UserInputMoveCursorLeft,
+    UserInputMoveCursorRight,
+    UserInputSubmitQuery,
+    UserInputFlipInputMode,
 }
 
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
@@ -37,6 +43,12 @@ fn move_search_cursor_left(state: &mut UiState) {
 fn move_search_cursor_right(state: &mut UiState) {
     let cursor_moved_right = state.user_input.character_index.saturating_add(1);
     state.user_input.character_index = clamp_cursor(state, cursor_moved_right);
+}
+
+fn enter_char(state: &mut UiState, char: char) {
+    let index = byte_index(state);
+    state.user_input.input.insert(index, char);
+    move_search_cursor_right(state);
 }
 
 fn byte_index(state: &UiState) -> usize {
@@ -70,7 +82,7 @@ fn delete_char(state: &mut UiState) {
 
 fn submit_user_input_search(state: &mut UiState) {
     search_by_keyword(state);
-    state.user_input.input_mode = InputMode::Normal;
+    state.input_mode = InputMode::Normal;
 }
 
 fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
@@ -127,6 +139,7 @@ fn search_by_keyword(state: &mut UiState) {
 
 fn launch_search(state: &mut UiState) {
     state.search_popup = true;
+    state.input_mode = InputMode::Editing;
 }
 
 fn all_usernames(state: &mut UiState) {
@@ -154,20 +167,27 @@ fn reset_filters(state: &mut UiState) {
     }
 }
 
-pub fn handle_key(key: KeyCode) -> Action {
-    let action = match key {
-        KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
-        KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
-        KeyCode::Enter => Action::SyncData,
-        KeyCode::Char('0') => Action::ZeroReferences,
-        KeyCode::Char('f') => Action::FilterByUsernameCli,
-        KeyCode::Char('s') => Action::SearchByKeyword,
-        KeyCode::Char('u') => Action::ListUsers,
-        KeyCode::Esc => Action::Reset,
-        KeyCode::Char('q') => Action::Quit,
-        _ => Action::NoOp,
+pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
+    let action = match state.input_mode {
+        InputMode::Normal => match key {
+            KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
+            KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
+            KeyCode::Enter => Action::SyncData,
+            KeyCode::Char('0') => Action::ZeroReferences,
+            KeyCode::Char('f') => Action::FilterByUsernameCli,
+            KeyCode::Char('s') => Action::SearchByKeyword,
+            KeyCode::Char('u') => Action::ListUsers,
+            KeyCode::Esc => Action::Reset,
+            KeyCode::Char('q') => Action::Quit,
+            _ => Action::NoOp,
+        },
+        InputMode::Editing => match key {
+            KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
+            KeyCode::Backspace => Action::UserInputDeleteChar,
+            KeyCode::Esc => Action::UserInputFlipInputMode,
+            _ => Action::NoOp,
+        },
     };
-
     action
 }
 
@@ -227,6 +247,13 @@ pub fn handle_action(
             launch_search(state);
             // search_by_keyword(state);
         }
+        Action::UserInputEnterChar(char) => {
+            enter_char(state, char);
+        }
+        Action::UserInputFlipInputMode => match state.input_mode {
+            InputMode::Normal => state.input_mode = InputMode::Editing,
+            InputMode::Editing => state.input_mode = InputMode::Normal,
+        },
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
             reset_filters(state);

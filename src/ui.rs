@@ -25,6 +25,7 @@ pub struct UiState {
     pub search_popup: bool,
     pub username_popup: bool,
     pub user_input: UserInput,
+    pub input_mode: InputMode,
     pub usernames: HashMap<String, u16>,
     pub username_state: TableState,
     pub cli_input: Args,
@@ -36,7 +37,7 @@ pub struct UiState {
 pub struct UserInput {
     pub input: String,
     pub character_index: usize,
-    pub input_mode: InputMode,
+    // pub input_mode: InputMode,
 }
 
 #[derive(Debug)]
@@ -72,12 +73,12 @@ pub fn init_state(cli_input: Args) -> UiState {
     let loading = false;
     let search_popup = false;
     let username_popup = false;
+    let input_mode = InputMode::Normal;
 
     let cli_search_term = cli_input.email.clone();
 
     let user_input = UserInput {
         input: cli_search_term.unwrap_or_default(),
-        input_mode: InputMode::Normal,
         character_index: 0,
     };
 
@@ -109,6 +110,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         search_popup,
         username_popup,
         user_input,
+        input_mode,
         cli_input,
         usernames,
         username_state,
