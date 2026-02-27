@@ -25,6 +25,7 @@ pub struct UiState {
     pub search_popup: bool,
     pub username_popup: bool,
     pub user_input: UserInput,
+    pub search_type: SearchType,
     pub input_mode: InputMode,
     pub usernames: HashMap<String, u16>,
     pub username_state: TableState,
@@ -44,6 +45,13 @@ pub struct UserInput {
 pub enum InputMode {
     Normal,
     Editing,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum SearchType {
+    #[default]
+    Title,
+    Owner,
 }
 
 #[derive(Debug)]
@@ -89,6 +97,7 @@ pub fn init_state(cli_input: Args) -> UiState {
 
     let mut errors = None;
 
+    let search_type = SearchType::default();
     let queries = Vec::new();
 
     let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
@@ -111,6 +120,7 @@ pub fn init_state(cli_input: Args) -> UiState {
         username_popup,
         user_input,
         input_mode,
+        search_type,
         cli_input,
         usernames,
         username_state,
@@ -178,8 +188,12 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         }
         None => {
             if state.search_popup {
-                let user_input = Paragraph::new(state.user_input.input.as_str())
-                    .block(Block::bordered().title("Input"));
+                let user_input = match state.search_type {
+                    SearchType::Title => Paragraph::new(state.user_input.input.as_str())
+                        .block(Block::bordered().title("Enter Search Term")),
+                    SearchType::Owner => Paragraph::new(state.user_input.input.as_str())
+                        .block(Block::bordered().title("Enter Username")),
+                };
 
                 let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());

@@ -1,4 +1,4 @@
-use crate::ui::{InputMode, UiState, ui};
+use crate::ui::{InputMode, SearchType, UiState, ui};
 use crate::utils::{
     filter_layer_no_references, format_email, load_all_content_from_file, read_last_sync,
     refresh_data,
@@ -18,6 +18,8 @@ pub enum Action {
     Reset,
     NoOp,
     Quit,
+    UserInputSearchTerm,
+    UserInputSearchUsername,
     UserInputEnterChar(char),
     UserInputDeleteChar,
     UserInputMoveCursorLeft,
@@ -80,11 +82,6 @@ fn delete_char(state: &mut UiState) {
     }
 }
 
-fn submit_user_input_search(state: &mut UiState) {
-    search_by_keyword(state);
-    state.input_mode = InputMode::Normal;
-}
-
 fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
     new_cursor_pos.clamp(0, state.user_input.input.chars().count())
 }
@@ -109,7 +106,8 @@ fn filter_by_username_cli(state: &mut UiState) {
     }
 }
 
-fn filter_by_username_widget(state: &mut UiState, username: String) {
+fn search_by_username(state: &mut UiState) {
+    let username = state.user_input.input.as_str();
     let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
         .agol_content
         .iter()
@@ -118,6 +116,10 @@ fn filter_by_username_widget(state: &mut UiState, username: String) {
         .collect();
 
     state.agol_content = filtered_list;
+    state.search_popup = false;
+    state
+        .queries
+        .push(format!("Owner/Username == '{username}'"))
 }
 
 fn search_by_keyword(state: &mut UiState) {
@@ -139,6 +141,13 @@ fn flip_input_mode(state: &mut UiState) {
         InputMode::Normal => state.input_mode = InputMode::Editing,
         InputMode::Editing => state.input_mode = InputMode::Normal,
     };
+}
+
+fn flip_search_type(state: &mut UiState) {
+    match state.search_type {
+        SearchType::Title => state.search_type = SearchType::Owner,
+        SearchType::Owner => state.search_type = SearchType::Title,
+    }
 }
 
 fn launch_search(state: &mut UiState) {
@@ -186,6 +195,9 @@ pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
             _ => Action::NoOp,
         },
         InputMode::Editing => match key {
+            //TODO change below to be ctrl+ 1/2
+            KeyCode::Char('1') => Action::UserInputSearchTerm,
+            KeyCode::Char('2') => Action::UserInputSearchUsername,
             KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
             KeyCode::Backspace => Action::UserInputDeleteChar,
             KeyCode::Esc => Action::UserInputFlipInputMode,
@@ -259,8 +271,18 @@ pub fn handle_action(
             delete_char(state);
         }
         Action::UserInputFlipInputMode => flip_input_mode(state),
-        Action::UserInputSubmitQuery => {
+        Action::UserInputSearchTerm if state.search_type == SearchType::Owner => {
+            flip_search_type(state);
+        }
+        Action::UserInputSearchUsername if state.search_type == SearchType::Title => {
+            flip_search_type(state);
+        }
+        Action::UserInputSubmitQuery if state.search_type == SearchType::Title => {
             search_by_keyword(state);
+            flip_input_mode(state);
+        }
+        Action::UserInputSubmitQuery if state.search_type == SearchType::Owner => {
+            search_by_username(state);
             flip_input_mode(state);
         }
 
