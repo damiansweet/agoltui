@@ -7,7 +7,7 @@ use crate::utils;
 use ratatui::style::Style;
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Position},
     widgets::{
         Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
         Wrap,
@@ -178,9 +178,21 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         }
         None => {
             if state.search_popup {
-                let block = Block::bordered().title("Search Term");
+                let user_input = Paragraph::new(state.user_input.input.as_str())
+                    .block(Block::bordered().title("Input"));
+
+                let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());
-                frame.render_widget(block, frame.area());
+                frame.render_widget(user_input, input_area);
+                match state.input_mode {
+                    InputMode::Normal => {}
+                    InputMode::Editing => {
+                        frame.set_cursor_position(Position::new(
+                            input_area.x + state.user_input.character_index as u16 + 1,
+                            input_area.y + 1,
+                        ));
+                    }
+                }
             } else {
                 if state.loading {
                     let loading_screen_widget = loading_screen_widget();

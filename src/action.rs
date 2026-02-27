@@ -121,20 +121,24 @@ fn filter_by_username_widget(state: &mut UiState, username: String) {
 }
 
 fn search_by_keyword(state: &mut UiState) {
+    let query = &state.user_input.input.to_lowercase();
     let search_results: Vec<agol::models::ArcGISSearchResults> = state
         .agol_content
         .iter()
-        .filter(|agol_item| {
-            agol_item
-                .title
-                .to_lowercase()
-                .contains(&state.user_input.input.to_lowercase())
-        })
+        .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
         .cloned()
         .collect();
 
     state.search_popup = false;
+    state.queries.push(format!("Title ILIKE '%{query}%'"));
     state.agol_content = search_results;
+}
+
+fn flip_input_mode(state: &mut UiState) {
+    match state.input_mode {
+        InputMode::Normal => state.input_mode = InputMode::Editing,
+        InputMode::Editing => state.input_mode = InputMode::Normal,
+    };
 }
 
 fn launch_search(state: &mut UiState) {
@@ -185,6 +189,7 @@ pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
             KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
             KeyCode::Backspace => Action::UserInputDeleteChar,
             KeyCode::Esc => Action::UserInputFlipInputMode,
+            KeyCode::Enter => Action::UserInputSubmitQuery,
             _ => Action::NoOp,
         },
     };
@@ -250,10 +255,12 @@ pub fn handle_action(
         Action::UserInputEnterChar(char) => {
             enter_char(state, char);
         }
-        Action::UserInputFlipInputMode => match state.input_mode {
-            InputMode::Normal => state.input_mode = InputMode::Editing,
-            InputMode::Editing => state.input_mode = InputMode::Normal,
-        },
+        Action::UserInputFlipInputMode => flip_input_mode(state),
+        Action::UserInputSubmitQuery => {
+            search_by_keyword(state);
+            flip_input_mode(state);
+        }
+
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
             reset_filters(state);
