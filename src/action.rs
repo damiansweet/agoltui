@@ -255,6 +255,9 @@ pub fn handle_action(
         Action::UserInputEnterChar(char) => {
             enter_char(state, char);
         }
+        Action::UserInputDeleteChar => {
+            delete_char(state);
+        }
         Action::UserInputFlipInputMode => flip_input_mode(state),
         Action::UserInputSubmitQuery => {
             search_by_keyword(state);
