@@ -141,6 +141,10 @@ fn search_by_keyword(state: &mut UiState) {
     }
 }
 
+fn search_by_item_id(state: &mut UiState) {
+    todo!()
+}
+
 fn flip_input_mode(state: &mut UiState) {
     match state.input_mode {
         InputMode::Normal => state.input_mode = InputMode::Editing,
