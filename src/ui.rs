@@ -175,9 +175,17 @@ fn loading_screen_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+fn app_launch_widget() -> Paragraph<'static> {
+    Paragraph::new("Welcome to AgolTUI :)\n Please press Enter to fetch AGOL content")
+        .block(Block::bordered())
+        .style(Style::new().green())
+        .alignment(Alignment::Center)
+}
+
 //TODO create widget that shows filter/search combos at bottom of screen
 
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
+    //TODO figure out way to have app_launch_widget be opening default
     match state.errors {
         Some(Errors::NoExistingData) => {
             let no_existing_data_widget = no_existing_data_widget();
