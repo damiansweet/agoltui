@@ -1,8 +1,5 @@
 use crate::ui::{InputMode, SearchType, UiState, ui};
-use crate::utils::{
-    filter_layer_no_references, format_email, load_all_content_from_file, read_last_sync,
-    refresh_data,
-};
+use crate::utils::{filter_layer_no_references, format_email, load_all_content_from_file};
 
 use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
 use crossterm::event::KeyCode;
@@ -246,23 +243,23 @@ pub async fn handle_action(
             state.list_state.select(previous);
         }
         Action::SyncData => {
-            state.loading = true;
-            state.errors = None;
-            terminal
-                .draw(|frame| {
-                    ui(frame, state);
-                })
-                .expect("failed to draw loading screen");
-            match refresh_data(client, access_token).await {
-                Ok(_) => {
-                    let last_sync = read_last_sync();
-                    state.last_synced = last_sync;
-                    state.list_state.select(Some(0));
-                    state.loading = false;
-                    state.agol_content = load_all_content_from_file().unwrap_or_default();
-                }
-                Err(_) => {}
-            }
+            // state.loading = true;
+            // state.errors = None;
+            // terminal
+            //     .draw(|frame| {
+            //         ui(frame, state);
+            //     })
+            //     .expect("failed to draw loading screen");
+            // match refresh_data(client, access_token).await {
+            //     Ok(_) => {
+            //         let last_sync = read_last_sync();
+            //         state.last_synced = last_sync;
+            //         state.list_state.select(Some(0));
+            //         state.loading = false;
+            //         state.agol_content = load_all_content_from_file().unwrap_or_default();
+            //     }
+            //     Err(_) => {}
+            // }
         }
         Action::ZeroReferences => {
             let list_content = filter_layer_no_references();

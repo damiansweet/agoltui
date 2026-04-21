@@ -1,8 +1,7 @@
 use crate::ui::Args;
-use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
+use agol::models::ArcGISSearchResults;
 use chrono::Local;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::Path;
 
 pub fn format_email(email: &str) -> &str {
@@ -15,24 +14,6 @@ pub fn format_email(email: &str) -> &str {
     }
 }
 
-pub fn read_last_sync() -> String {
-    let file = std::fs::read_to_string("data/last_sync.txt");
-
-    match file {
-        Ok(file_contents) => {
-            if file_contents.len() > 0 {
-                // let sync_time: Vec<&str> = file.split("\n").collect();
-
-                // let sync_time = sync_time[0].to_string();
-                let sync_time = file_contents.trim();
-                sync_time.to_string()
-            } else {
-                String::new()
-            }
-        }
-        Err(_) => String::new(),
-    }
-}
 //TODO display feature layer info that has the most references
 
 //TODO test how many results come from this
@@ -94,33 +75,7 @@ pub fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn 
     let data = serde_json::from_str(&data)?;
     Ok(data)
 }
-pub async fn refresh_data(
-    client: &reqwest::Client,
-    access_token: &ArcGISAccessToken,
-) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let all_agol_content = agol::fetch_all_agol_content(client, access_token).await?;
-    let all_agol_content_path = Path::new("data/all_agol_content.json");
-    agol::pretty_write_all_agol_content_to_file(&all_agol_content_path, &all_agol_content)?;
 
-    let web_maps = agol::filter_web_maps(&all_agol_content);
-    let web_map_ids = agol::extract_agol_ids(&web_maps);
-
-    let all_layers_with_web_maps =
-        agol::fetch_layers_for_all_web_maps(client, access_token, &web_map_ids).await?;
-    //write all layers with web maps to json file
-
-    let layers_with_web_map_path = Path::new("data/all_layers_with_web_maps.json");
-    pretty_write_all_layers_with_web_maps_to_file(
-        layers_with_web_map_path,
-        all_layers_with_web_maps,
-    )?;
-
-    let current_time = get_current_time()?;
-
-    fs::write("data/last_sync.txt", current_time)?;
-
-    Ok(())
-}
 pub fn pretty_write_all_layers_with_web_maps_to_file(
     file_path: &Path,
     all_layers: HashMap<String, HashSet<String>>,

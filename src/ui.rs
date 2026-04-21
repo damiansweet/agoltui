@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use agol::models::ArcGISSearchResults;
 use clap::Parser;
@@ -19,7 +19,6 @@ pub struct UiState {
     pub agol_content: Vec<ArcGISSearchResults>,
     pub selected: Option<usize>,
     pub list_state: ListState,
-    pub last_synced: String,
     pub running: bool,
     pub loading: bool,
     pub search_popup: bool,
@@ -72,11 +71,13 @@ pub struct Args {
     #[arg(short, long)]
     pub search: Option<String>,
 }
-pub fn init_state(cli_input: Args) -> UiState {
+pub fn init_state(
+    cli_input: Args,
+    agol_content: Vec<agol::models::ArcGISSearchResults>,
+) -> UiState {
     let mut list_state = ListState::default();
     let selected = Some(0);
     list_state.select(selected);
-    let last_synced = utils::read_last_sync();
     let running = true;
     let loading = false;
     let search_popup = false;
@@ -104,20 +105,19 @@ pub fn init_state(cli_input: Args) -> UiState {
     let search_type = SearchType::default();
     let queries = Vec::new();
 
-    let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
-        agol_content
-    } else {
-        errors = Some(Errors::NoExistingData);
-        Vec::new()
-        // let _ = utils::refresh_data(&client, &access_token);
-        // utils::load_all_content_from_file().expect("unable to read from all content json")
-    };
+    // let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
+    //     agol_content
+    // } else {
+    //     errors = Some(Errors::NoExistingData);
+    //     Vec::new()
+    //     // let _ = utils::refresh_data(&client, &access_token);
+    //     // utils::load_all_content_from_file().expect("unable to read from all content json")
+    // };
 
     UiState {
         agol_content,
         selected,
         list_state,
-        last_synced,
         running,
         loading,
         search_popup,
@@ -271,11 +271,13 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .map(|item| ListItem::new(item.id.clone()))
                         .collect();
 
+                    let num_list_items = state.agol_content.len();
+
                     let widget_left = List::new(all_content_ids)
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
-                                .title("All AGOL Content List"),
+                                .title(format!("All AGOL Content List\t {num_list_items}")),
                         )
                         .style(Style::new().white())
                         .highlight_style(Style::new().italic())
@@ -288,15 +290,18 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .map(|item| item.title.as_str())
                         .unwrap_or_default();
 
+                    let selected_item_type = selected_item(state, &state.agol_content)
+                        .map(|item| item.item_type.as_str())
+                        .unwrap_or_default();
+
                     let selected_owner = selected_item(state, &state.agol_content)
                         .map(|item| item.owner.as_str())
                         .unwrap_or_default();
-                    let last_sync = &state.last_synced.clone();
 
                     let queries = &state.queries.join(" && ");
 
                     let layer_info_text = format!(
-                        "Title: {selected_title}\nOwner: {selected_owner}\nReferences Last Synced: {last_sync}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<Enter> to refresh data | <f> to filter by username | <0> zero references\nCurrent Query: {queries}"
+                        "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<f> filter by username | <0> zero references\nCurrent Query: {queries}"
                     );
 
                     let widget_center = Paragraph::new(layer_info_text)

@@ -1,5 +1,6 @@
 use clap::Parser;
 use crossterm::event::{self, Event};
+use std::sync::Arc;
 use thiserror::Error;
 
 mod action;
@@ -14,6 +15,8 @@ enum AppError {
     Agol(#[from] agol::error::ArcGISLibError),
     #[error("Ratatui error: {0}")]
     Ratatui(#[from] std::io::Error),
+    #[error("AGOL Data Fetch error: {0}")]
+    FetchAll(#[from] std::boxed::Box<dyn std::error::Error + Send + Sync>),
 }
 
 #[tokio::main]
@@ -22,13 +25,19 @@ async fn main() -> Result<(), AppError> {
     let mut terminal = ratatui::init();
     //TODO create a loading screen widget to display data is fetching in background
 
-    let client = reqwest::Client::new();
-    let access_token = agol::fetch_oauth2_agol_token(&client).await?;
+    let client = Arc::new(reqwest::Client::new());
+    let access_token = Arc::new(agol::fetch_oauth2_agol_token(&client).await?);
 
-    // let all_agol_content = agol::fetch_all_agol_content_blocking(&client, &access_token);
-    let _all_agol_content = utils::load_all_content_from_file();
+    let total_agol_count = agol::fetch_agol_content_total_count(&client, &access_token).await?;
 
-    let mut ui_state = ui::init_state(args);
+    let results = agol::fetch_all_agol_content(
+        Arc::clone(&client),
+        Arc::clone(&access_token),
+        total_agol_count,
+    )
+    .await?;
+
+    let mut ui_state = ui::init_state(args, results);
     while ui_state.running {
         terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
