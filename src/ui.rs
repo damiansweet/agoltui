@@ -17,6 +17,7 @@ use ratatui::{
 #[derive(Debug)]
 pub struct UiState {
     pub agol_content: Vec<ArcGISSearchResults>,
+    pub reference_lookup: agol::models::ArcGISReferences,
     pub selected: Option<usize>,
     pub list_state: ListState,
     pub running: bool,
@@ -95,6 +96,11 @@ pub fn init_state(
         character_index: 0,
     };
 
+    //default references
+    let reference_lookup = agol::models::ArcGISReferences {
+        references: HashMap::new(),
+    };
+
     let usernames = HashMap::new();
 
     let mut username_state = TableState::default();
@@ -129,6 +135,7 @@ pub fn init_state(
         username_state,
         errors,
         queries,
+        reference_lookup,
     }
 }
 
