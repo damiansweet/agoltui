@@ -4,6 +4,7 @@ use crate::utils::{
     refresh_data,
 };
 
+use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
 use crossterm::event::KeyCode;
 use ratatui::{Terminal, backend::Backend};
 
@@ -94,7 +95,7 @@ fn filter_by_username_cli(state: &mut UiState) {
     if let Some(email) = &state.cli_input.email {
         //TODO verify email is in org
         let email = format_email(email);
-        let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
+        let filtered_list: Vec<ArcGISSearchResults> = state
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.owner == format!("{email}_CityofLoneTree"))
@@ -102,13 +103,15 @@ fn filter_by_username_cli(state: &mut UiState) {
             .collect();
 
         state.agol_content = filtered_list;
-        state.queries.push(format!("Username == {email}"));
+        if !state.queries.contains(&format!("Username == {email}")) {
+            state.queries.push(format!("Username == {email}"))
+        };
     }
 }
 
 fn search_by_username(state: &mut UiState) {
     let username = state.user_input.input.as_str();
-    let filtered_list: Vec<agol::models::ArcGISSearchResults> = state
+    let filtered_list: Vec<ArcGISSearchResults> = state
         .agol_content
         .iter()
         .filter(|agol_item| agol_item.owner == username)
@@ -117,16 +120,21 @@ fn search_by_username(state: &mut UiState) {
 
     state.agol_content = filtered_list;
     state.search_popup = false;
-    state
+    if !state
         .queries
-        .push(format!("Owner/Username == '{username}'"))
+        .contains(&format!("Owner/Username == '{username}'"))
+    {
+        state
+            .queries
+            .push(format!("Owner/Username == '{username}'"))
+    };
 }
 
 fn search_by_keyword(state: &mut UiState) {
     let query = &state.user_input.input.to_lowercase();
 
     if query.len() >= 3 && query.len() <= 50 {
-        let search_results: Vec<agol::models::ArcGISSearchResults> = state
+        let search_results: Vec<ArcGISSearchResults> = state
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
@@ -134,7 +142,9 @@ fn search_by_keyword(state: &mut UiState) {
             .collect();
 
         state.search_popup = false;
-        state.queries.push(format!("Title ILIKE '%{query}%'"));
+        if !state.queries.contains(&format!("title ILIKE '%{query}%'")) {
+            state.queries.push(format!("Title ILIKE '%{query}%'"))
+        };
         state.agol_content = search_results;
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
@@ -191,7 +201,7 @@ fn reset_filters(state: &mut UiState) {
 }
 
 pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
-    let action = match state.input_mode {
+    match state.input_mode {
         InputMode::Normal => match key {
             KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
             KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
@@ -214,16 +224,15 @@ pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
             KeyCode::Enter => Action::UserInputSubmitQuery,
             _ => Action::NoOp,
         },
-    };
-    action
+    }
 }
 
-pub fn handle_action(
+pub async fn handle_action(
     state: &mut UiState,
     terminal: &mut Terminal<impl Backend>,
     action: Action,
-    client: &reqwest::blocking::Client,
-    access_token: &agol::models::ArcGISAccessToken,
+    client: &reqwest::Client,
+    access_token: &ArcGISAccessToken,
 ) {
     match action {
         Action::MoveSelectionDown => {
@@ -244,7 +253,7 @@ pub fn handle_action(
                     ui(frame, state);
                 })
                 .expect("failed to draw loading screen");
-            match refresh_data(client, access_token) {
+            match refresh_data(client, access_token).await {
                 Ok(_) => {
                     let last_sync = read_last_sync();
                     state.last_synced = last_sync;
@@ -259,7 +268,9 @@ pub fn handle_action(
             let list_content = filter_layer_no_references();
             state.agol_content = list_content;
             state.list_state.select(None);
-            state.queries.push(String::from("Zero References"));
+            if !state.queries.contains(&String::from("Zero References")) {
+                state.queries.push(String::from("Zero References"))
+            };
         }
         // Action::FilterByUsername => {
         //     filter_by_username(

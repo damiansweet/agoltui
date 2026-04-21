@@ -1,5 +1,5 @@
 use crate::ui::Args;
-use agol::models::ArcGISSearchResults;
+use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
 use chrono::Local;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -94,11 +94,11 @@ pub fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn 
     let data = serde_json::from_str(&data)?;
     Ok(data)
 }
-pub fn refresh_data(
-    client: &reqwest::blocking::Client,
-    access_token: &agol::models::ArcGISAccessToken,
+pub async fn refresh_data(
+    client: &reqwest::Client,
+    access_token: &ArcGISAccessToken,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let all_agol_content = agol::fetch_all_agol_content_blocking(client, access_token)?;
+    let all_agol_content = agol::fetch_all_agol_content(client, access_token).await?;
     let all_agol_content_path = Path::new("data/all_agol_content.json");
     agol::pretty_write_all_agol_content_to_file(&all_agol_content_path, &all_agol_content)?;
 
@@ -106,7 +106,7 @@ pub fn refresh_data(
     let web_map_ids = agol::extract_agol_ids(&web_maps);
 
     let all_layers_with_web_maps =
-        agol::fetch_layers_for_all_web_maps_blocking(client, access_token, &web_map_ids)?;
+        agol::fetch_layers_for_all_web_maps(client, access_token, &web_map_ids).await?;
     //write all layers with web maps to json file
 
     let layers_with_web_map_path = Path::new("data/all_layers_with_web_maps.json");

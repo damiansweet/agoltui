@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use agol::models::ArcGISSearchResults;
 use clap::Parser;
@@ -82,12 +82,15 @@ pub fn init_state(cli_input: Args) -> UiState {
     let search_popup = false;
     let input_mode = InputMode::Normal;
 
-    let cli_search_term = cli_input.email.clone();
+    let input = match &cli_input.email {
+        Some(email) => email.to_string(),
+        None => String::default(),
+    };
 
     //TODO put in logic to set user_input dynamically based on clap arguments passed in
     //TODO validate user input is between 2-30 chars
     let user_input = UserInput {
-        input: cli_search_term.unwrap_or_default(),
+        input,
         character_index: 0,
     };
 
@@ -206,11 +209,12 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         }
         None => {
             if state.search_popup {
+                let query = state.user_input.input.clone();
                 let user_input = match state.search_type {
-                    SearchType::Title => Paragraph::new(state.user_input.input.as_str())
+                    SearchType::Title => Paragraph::new(query)
                         .style(Style::new().light_blue())
                         .block(Block::bordered().title("Enter Search Term")),
-                    SearchType::Owner => Paragraph::new(state.user_input.input.as_str())
+                    SearchType::Owner => Paragraph::new(query)
                         .style(Style::new().yellow())
                         .block(Block::bordered().title("Enter Username")),
                 };
@@ -231,7 +235,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                 if state.loading {
                     let loading_screen_widget = loading_screen_widget();
                     frame.render_widget(loading_screen_widget, frame.area())
-                } else if state.usernames.len() > 0 {
+                } else if !state.usernames.is_empty() {
                     let rows: Vec<Row> = state
                         .usernames
                         .iter()
@@ -305,7 +309,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         selected_item(state, &state.agol_content).map(|item| item.id.as_str())
                     {
                         let references = utils::get_layer_references(selected_id);
-                        if references.len() >= 1 {
+                        if !references.is_empty() {
                             List::new(references)
                                 .block(Block::bordered().title("References"))
                                 .style(Style::new().blue())
