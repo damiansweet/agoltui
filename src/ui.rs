@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use agol::models::ArcGISSearchResults;
+use agol::models::{ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
 
 use crate::utils;
@@ -17,7 +17,7 @@ use ratatui::{
 #[derive(Debug)]
 pub struct UiState {
     pub agol_content: Vec<ArcGISSearchResults>,
-    pub reference_lookup: agol::models::ArcGISReferences,
+    pub references_lookup: ArcGISReferences,
     pub selected: Option<usize>,
     pub list_state: ListState,
     pub running: bool,
@@ -75,6 +75,7 @@ pub struct Args {
 pub fn init_state(
     cli_input: Args,
     agol_content: Vec<agol::models::ArcGISSearchResults>,
+    references_lookup: ArcGISReferences,
 ) -> UiState {
     let mut list_state = ListState::default();
     let selected = Some(0);
@@ -94,11 +95,6 @@ pub fn init_state(
     let user_input = UserInput {
         input,
         character_index: 0,
-    };
-
-    //default references
-    let reference_lookup = agol::models::ArcGISReferences {
-        references: HashMap::new(),
     };
 
     let usernames = HashMap::new();
@@ -135,7 +131,7 @@ pub fn init_state(
         username_state,
         errors,
         queries,
-        reference_lookup,
+        references_lookup,
     }
 }
 
@@ -317,11 +313,14 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .style(Style::new().white())
                         .alignment(Alignment::Center);
 
+                    //TODO change to table to show item_id, item_type, item_title
                     let widget_right = if let Some(selected_id) =
                         selected_item(state, &state.agol_content).map(|item| item.id.as_str())
                     {
-                        let references = utils::get_layer_references(selected_id);
+                        let references = utils::get_layer_references(selected_id, state);
                         if !references.is_empty() {
+                            let references: Vec<String> =
+                                references.iter().map(|r| r.id.clone()).collect();
                             List::new(references)
                                 .block(Block::bordered().title("References"))
                                 .style(Style::new().blue())

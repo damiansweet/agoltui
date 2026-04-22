@@ -1,4 +1,4 @@
-use crate::ui::{InputMode, SearchType, UiState, ui};
+use crate::ui::{InputMode, SearchType, UiState};
 use crate::utils::{filter_layer_no_references, format_email, load_all_content_from_file};
 
 use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
@@ -182,6 +182,7 @@ fn all_usernames(state: &mut UiState) {
 }
 
 fn reset_filters(state: &mut UiState) {
+    //TODO create a filtered UiState struct field and reset to all content when called
     let agol_content = load_all_content_from_file();
 
     match agol_content {
@@ -262,7 +263,10 @@ pub async fn handle_action(
             // }
         }
         Action::ZeroReferences => {
-            let list_content = filter_layer_no_references();
+            let list_content = filter_layer_no_references(state)
+                .into_iter()
+                .cloned()
+                .collect();
             state.agol_content = list_content;
             state.list_state.select(None);
             if !state.queries.contains(&String::from("Zero References")) {
