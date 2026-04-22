@@ -1,6 +1,7 @@
 use agol::models::{AgolItemType, ArcGISAccessToken, ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
 use crossterm::event::{self, Event};
+use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -25,16 +26,27 @@ enum AppError {
 async fn fetch_agol_data(
     client: Arc<reqwest::Client>,
     access_token: Arc<ArcGISAccessToken>,
-) -> Result<(Vec<ArcGISSearchResults>, ArcGISReferences), AppError> {
-    let total_agol_count = agol::fetch_agol_content_total_count(&client, &access_token).await?;
+    total_agol_count: u32,
+) -> Result<Vec<ArcGISSearchResults>, AppError> {
     let results =
         agol::fetch_all_agol_content(client.clone(), access_token.clone(), total_agol_count)
             .await?;
 
+    // let mut references = ArcGISReferences {
+    //     lookup: HashMap::new(),
+    // };
+
+    Ok(results)
+}
+
+async fn process_references_only(
+    client: Arc<reqwest::Client>,
+    access_token: Arc<ArcGISAccessToken>,
+    results: Vec<ArcGISSearchResults>,
+) -> Result<ArcGISReferences, AppError> {
     let mut references = ArcGISReferences {
         lookup: HashMap::new(),
     };
-
     let source_data: Vec<&ArcGISSearchResults> = results
         .iter()
         .filter(|i| {
@@ -49,7 +61,10 @@ async fn fetch_agol_data(
         references.lookup.insert(source.id.clone(), HashSet::new());
     }
 
-    let web_apps: Vec<&ArcGISSearchResults> = results
+    //todo do lap and insert all web maps into source data
+
+    //TODO adjust this to use stream_of_futures
+    let web_apps: Vec<ArcGISSearchResults> = results
         .iter()
         .filter(|i| {
             matches!(
@@ -57,18 +72,27 @@ async fn fetch_agol_data(
                 Ok(AgolItemType::WebApp(_))
             )
         })
+        .cloned()
         .collect();
 
-    for web_app in web_apps {
-        let item_type = AgolItemType::try_from(web_app.item_type.as_str()).unwrap();
-        let tmp_references =
-            agol::fetch_per_web_app_type(&client, &access_token, web_app, item_type).await?;
-        for (k, v) in tmp_references.lookup {
-            references.lookup.entry(k).or_default().extend(v);
+    let mut stream_of_futures = stream::iter(web_apps.clone())
+        .map(|s| {
+            let client = Arc::clone(&client);
+            let access_token = Arc::clone(&access_token);
+            let item_type = AgolItemType::try_from(s.item_type.as_str()).unwrap();
+            async move { agol::fetch_per_web_app_type(&client, &access_token, &s, item_type).await }
+        })
+        .buffer_unordered(100);
+
+    while let Some(web_app_references) = stream_of_futures.next().await {
+        if let Ok(r) = web_app_references {
+            for (k, v) in r.lookup {
+                references.lookup.entry(k).or_default().extend(v);
+            }
         }
     }
 
-    Ok((results, references))
+    Ok(references)
 }
 
 #[tokio::main]
@@ -79,18 +103,45 @@ async fn main() -> Result<(), AppError> {
     let client = Arc::new(reqwest::Client::new());
     let access_token = Arc::new(agol::fetch_oauth2_agol_token(&client).await?);
 
-    let (agol_items, references) =
-        fetch_agol_data(Arc::clone(&client), Arc::clone(&access_token)).await?;
+    let total_agol_count = agol::fetch_agol_content_total_count(&client, &access_token).await?;
+    let agol_items = fetch_agol_data(
+        Arc::clone(&client),
+        Arc::clone(&access_token),
+        total_agol_count,
+    )
+    .await?;
 
-    //TODO initialize item_references []
-    //TODO initialize broken_connections []
-    //TODO filter out source data []
-    //TODO call agol::fetch_data_per_web_app []
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
 
-    let mut ui_state = ui::init_state(args, agol_items, references);
+    let client_bg = Arc::clone(&client);
+    let token_bg = Arc::clone(&access_token);
+    let items_bg = agol_items.clone();
+
+    tokio::spawn(async move {
+        if let Ok(refs) = process_references_only(client_bg, token_bg, items_bg).await {
+            let _ = tx.send(refs).await;
+        }
+    });
+
+    let mut ui_state = ui::init_state(
+        args,
+        agol_items,
+        total_agol_count,
+        ArcGISReferences::default(),
+    );
+    ui_state.references_loading = true;
+
     while ui_state.running {
         terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
+        if let Ok(refs) = rx.try_recv() {
+            ui_state.references_lookup = refs;
+            ui_state.references_loading = false;
+        }
+
+        if !event::poll(std::time::Duration::from_millis(16))? {
+            continue;
+        }
         if let Event::Key(key) = event::read()? {
             let action = action::handle_key(&ui_state, key.code);
             action::handle_action(&mut ui_state, &mut terminal, action, &client, &access_token)

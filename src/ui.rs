@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use agol::models::{ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
@@ -17,11 +17,13 @@ use ratatui::{
 #[derive(Debug)]
 pub struct UiState {
     pub agol_content: Vec<ArcGISSearchResults>,
+    pub agol_total_count: u32,
     pub references_lookup: ArcGISReferences,
     pub selected: Option<usize>,
     pub list_state: ListState,
     pub running: bool,
     pub loading: bool,
+    pub references_loading: bool,
     pub search_popup: bool,
     pub user_input: UserInput,
     pub search_type: SearchType,
@@ -75,12 +77,14 @@ pub struct Args {
 pub fn init_state(
     cli_input: Args,
     agol_content: Vec<agol::models::ArcGISSearchResults>,
+    agol_total_count: u32,
     references_lookup: ArcGISReferences,
 ) -> UiState {
     let mut list_state = ListState::default();
     let selected = Some(0);
     list_state.select(selected);
     let running = true;
+    let references_loading = false;
     let loading = false;
     let search_popup = false;
     let input_mode = InputMode::Normal;
@@ -118,10 +122,12 @@ pub fn init_state(
 
     UiState {
         agol_content,
+        agol_total_count,
         selected,
         list_state,
         running,
         loading,
+        references_loading,
         search_popup,
         user_input,
         input_mode,
@@ -307,15 +313,22 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<f> filter by username | <0> zero references\nCurrent Query: {queries}"
                     );
 
-                    let widget_center = Paragraph::new(layer_info_text)
-                        .wrap(Wrap { trim: true })
-                        .block(Block::bordered().title("Layer Info"))
-                        .style(Style::new().white())
-                        .alignment(Alignment::Center);
+                    let widget_center = if state.references_loading {
+                        Paragraph::new("Loading references...")
+                            .block(Block::bordered().title("References"))
+                            .style(Style::new().yellow())
+                    } else {
+                        Paragraph::new(layer_info_text)
+                            .wrap(Wrap { trim: true })
+                            .block(Block::bordered().title("Layer Info"))
+                            .style(Style::new().white())
+                            .alignment(Alignment::Center)
+                    };
 
                     //TODO change to table to show item_id, item_type, item_title
-                    let widget_right = if let Some(selected_id) =
-                        selected_item(state, &state.agol_content).map(|item| item.id.as_str())
+                    let widget_right = if !state.references_loading
+                        && let Some(selected_id) =
+                            selected_item(state, &state.agol_content).map(|item| item.id.as_str())
                     {
                         let references = utils::get_layer_references(selected_id, state);
                         if !references.is_empty() {

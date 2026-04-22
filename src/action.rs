@@ -1,5 +1,6 @@
 use crate::ui::{InputMode, SearchType, UiState};
-use crate::utils::{filter_layer_no_references, format_email, load_all_content_from_file};
+use crate::utils::{filter_layer_no_references, format_email};
+use std::sync::Arc;
 
 use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
 use crossterm::event::KeyCode;
@@ -181,9 +182,16 @@ fn all_usernames(state: &mut UiState) {
     });
 }
 
-fn reset_filters(state: &mut UiState) {
+async fn reset_filters(
+    state: &mut UiState,
+    client: &reqwest::Client,
+    access_token: ArcGISAccessToken,
+) {
     //TODO create a filtered UiState struct field and reset to all content when called
-    let agol_content = load_all_content_from_file();
+    let client = Arc::new(client.clone());
+    let access_token = Arc::new(access_token);
+    let agol_content =
+        agol::fetch_all_agol_content(client.clone(), access_token, state.agol_total_count).await;
 
     match agol_content {
         Ok(content) => {
@@ -310,7 +318,7 @@ pub async fn handle_action(
 
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
-            reset_filters(state);
+            reset_filters(state, client, access_token.clone()).await;
         }
         Action::Quit => {
             state.running = false;
