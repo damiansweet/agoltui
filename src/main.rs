@@ -47,42 +47,18 @@ async fn process_references_only(
     let mut references = ArcGISReferences {
         lookup: HashMap::new(),
     };
-    let source_data: Vec<&ArcGISSearchResults> = results
-        .iter()
-        .filter(|i| {
-            matches!(
-                AgolItemType::try_from(i.item_type.as_str()),
-                Ok(AgolItemType::SourceData(_))
-            )
-        })
-        .collect();
 
-    for source in source_data {
-        references.lookup.insert(source.id.clone(), HashSet::new());
-    }
-
-    //TODO figure out how to do CSV & IMAGE references
-
-    //TODO adjust this to use stream_of_futures
-    let web_apps: Vec<ArcGISSearchResults> = results
-        .iter()
-        .filter(|i| {
-            matches!(
-                AgolItemType::try_from(i.item_type.as_str()),
-                Ok(AgolItemType::WebApp(_))
-            )
-        })
-        .cloned()
-        .collect();
-
-    let mut stream_of_futures = stream::iter(web_apps.clone())
-        .map(|s| {
-            let client = Arc::clone(&client);
-            let access_token = Arc::clone(&access_token);
-            let item_type = AgolItemType::try_from(s.item_type.as_str()).unwrap();
-            async move { agol::fetch_per_web_app_type(&client, &access_token, &s, item_type).await }
-        })
-        .buffer_unordered(100);
+    let mut stream_of_futures =
+        stream::iter(results.clone())
+            .map(|s| {
+                let client = Arc::clone(&client);
+                let access_token = Arc::clone(&access_token);
+                let item_type = AgolItemType::try_from(s.item_type.as_str());
+                async move {
+                    agol::fetch_per_agol_item_type(&client, &access_token, &s, item_type).await
+                }
+            })
+            .buffer_unordered(100);
 
     while let Some(web_app_references) = stream_of_futures.next().await {
         if let Ok(r) = web_app_references {
