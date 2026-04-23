@@ -28,7 +28,9 @@ pub fn filter_layer_no_references(state: &mut UiState) -> Vec<&ArcGISSearchResul
     state
         .agol_content
         .iter()
-        .filter(|c| no_reference_ids.contains(&&c.id.clone()))
+        .filter(|c| {
+            no_reference_ids.contains(&&c.id.clone()) && c.item_type != "Service Definition"
+        })
         .collect()
 }
 

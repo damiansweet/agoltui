@@ -61,7 +61,7 @@ async fn process_references_only(
         references.lookup.insert(source.id.clone(), HashSet::new());
     }
 
-    //todo do lap and insert all web maps into source data
+    //TODO figure out how to do CSV & IMAGE references
 
     //TODO adjust this to use stream_of_futures
     let web_apps: Vec<ArcGISSearchResults> = results
