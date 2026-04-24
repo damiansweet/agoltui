@@ -190,19 +190,15 @@ async fn reset_filters(
     //TODO create a filtered UiState struct field and reset to all content when called
     let client = Arc::new(client.clone());
     let access_token = Arc::new(access_token);
-    let agol_content =
-        agol::fetch_all_agol_content(client.clone(), access_token, state.agol_total_count).await;
 
-    match agol_content {
-        Ok(content) => {
-            state.agol_content = content;
-            state.search_popup = false;
-            state.usernames.clear();
-            state.queries.clear();
-            state.errors = None;
-        }
-        //TODO call refresh data if Err
-        Err(_) => {}
+    if let Ok(agol_content) =
+        agol::fetch_all_agol_content(client.clone(), access_token, state.agol_total_count).await
+    {
+        state.agol_content = agol_content;
+        state.search_popup = false;
+        state.usernames.clear();
+        state.queries.clear();
+        state.errors = None;
     }
 }
 
