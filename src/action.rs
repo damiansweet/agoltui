@@ -189,6 +189,7 @@ async fn reset_filters(
     client: &reqwest::Client,
     access_token: ArcGISAccessToken,
 ) {
+    // dbg!(&state);
     //TODO create a filtered UiState struct field and reset to all content when called
     let client = Arc::new(client.clone());
     let access_token = Arc::new(access_token);
@@ -197,11 +198,15 @@ async fn reset_filters(
         agol::fetch_all_agol_content(client.clone(), access_token, state.agol_total_count).await
     {
         state.agol_content = agol_content;
+        state.selected = Some(0);
+        state.list_state.select_first();
         state.search_popup = false;
         state.usernames.clear();
         state.queries.clear();
         state.errors = None;
     }
+
+    // dbg!(&state);
 }
 
 pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
@@ -274,7 +279,8 @@ pub async fn handle_action(
                 .cloned()
                 .collect();
             state.agol_content = list_content;
-            state.list_state.select(None);
+            state.selected = Some(0);
+            state.list_state.select_first();
             if !state.queries.contains(&String::from("Zero References")) {
                 state.queries.push(String::from("Zero References"))
             };
