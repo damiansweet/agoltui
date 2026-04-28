@@ -53,6 +53,7 @@ pub enum SearchType {
     #[default]
     Title,
     Owner,
+    Id,
 }
 
 #[derive(Debug)]
@@ -226,6 +227,9 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     SearchType::Owner => Paragraph::new(query)
                         .style(Style::new().yellow())
                         .block(Block::bordered().title("Enter Username")),
+                    SearchType::Id => Paragraph::new(query)
+                        .style(Style::new().light_cyan())
+                        .block(Block::bordered().title("Enter Item Id")),
                 };
 
                 let input_area = frame.area();

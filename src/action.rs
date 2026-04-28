@@ -20,6 +20,7 @@ pub enum Action {
     YankToSystemClipboard,
     UserInputSearchTerm,
     UserInputSearchUsername,
+    UserInputSearchId,
     UserInputEnterChar(char),
     UserInputDeleteChar,
     UserInputMoveCursorLeft,
@@ -155,7 +156,26 @@ fn search_by_keyword(state: &mut UiState) {
 }
 
 fn search_by_item_id(state: &mut UiState) {
-    todo!()
+    let query = &state.user_input.input;
+
+    if query.len() >= 3 && query.len() <= 50 {
+        let search_results: Vec<ArcGISSearchResults> = state
+            .agol_content
+            .iter()
+            .filter(|agol_item| agol_item.id == *query)
+            .cloned()
+            .collect();
+
+        state.search_popup = false;
+        if !state.queries.contains(&format!("id == '{query}'")) {
+            state.queries.push(format!("id == '{query}'"))
+        };
+        state.agol_content = search_results;
+        state.selected = Some(0);
+        state.list_state.select_first();
+    } else {
+        state.errors = Some(crate::ui::Errors::InvalidUserInput);
+    }
 }
 
 fn yank_selected_to_system_clipboard(state: &mut UiState) {
@@ -169,10 +189,11 @@ fn flip_input_mode(state: &mut UiState) {
     };
 }
 
-fn flip_search_type(state: &mut UiState) {
-    match state.search_type {
-        SearchType::Title => state.search_type = SearchType::Owner,
-        SearchType::Owner => state.search_type = SearchType::Title,
+fn set_search_type(state: &mut UiState, search_type: SearchType) {
+    match search_type {
+        SearchType::Title => state.search_type = SearchType::Title,
+        SearchType::Owner => state.search_type = SearchType::Owner,
+        SearchType::Id => state.search_type = SearchType::Id,
     }
 }
 
@@ -232,8 +253,9 @@ pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
         },
         InputMode::Editing => match key {
             //TODO change below to be ctrl+ 1/2
-            KeyCode::Char('1') => Action::UserInputSearchTerm,
-            KeyCode::Char('2') => Action::UserInputSearchUsername,
+            KeyCode::Home => Action::UserInputSearchTerm,
+            KeyCode::End => Action::UserInputSearchUsername,
+            KeyCode::PageUp => Action::UserInputSearchId,
             KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
             KeyCode::Backspace => Action::UserInputDeleteChar,
             KeyCode::Esc => Action::UserInputFlipInputMode,
@@ -312,11 +334,20 @@ pub async fn handle_action(
             delete_char(state);
         }
         Action::UserInputFlipInputMode => flip_input_mode(state),
-        Action::UserInputSearchTerm if state.search_type == SearchType::Owner => {
-            flip_search_type(state);
+        Action::UserInputSearchTerm
+            if state.search_type == SearchType::Owner || state.search_type == SearchType::Id =>
+        {
+            set_search_type(state, SearchType::Title);
         }
-        Action::UserInputSearchUsername if state.search_type == SearchType::Title => {
-            flip_search_type(state);
+        Action::UserInputSearchUsername
+            if state.search_type == SearchType::Title || state.search_type == SearchType::Id =>
+        {
+            set_search_type(state, SearchType::Owner);
+        }
+        Action::UserInputSearchId
+            if state.search_type == SearchType::Title || state.search_type == SearchType::Owner =>
+        {
+            set_search_type(state, SearchType::Id);
         }
         Action::UserInputSubmitQuery if state.search_type == SearchType::Title => {
             search_by_keyword(state);
@@ -324,6 +355,10 @@ pub async fn handle_action(
         }
         Action::UserInputSubmitQuery if state.search_type == SearchType::Owner => {
             search_by_username(state);
+            flip_input_mode(state);
+        }
+        Action::UserInputSubmitQuery if state.search_type == SearchType::Id => {
+            search_by_item_id(state);
             flip_input_mode(state);
         }
 
