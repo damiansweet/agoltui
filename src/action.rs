@@ -147,6 +147,8 @@ fn search_by_keyword(state: &mut UiState) {
             state.queries.push(format!("Title ILIKE '%{query}%'"))
         };
         state.agol_content = search_results;
+        state.selected = Some(0);
+        state.list_state.select_first();
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
     }

@@ -4,7 +4,7 @@ use agol::models::{ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
 
 use crate::utils;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
@@ -282,7 +282,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                     let num_list_items = state.agol_content.len();
 
-                    let widget_left = List::new(all_content_ids)
+                    let widget_top = List::new(all_content_ids)
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
@@ -325,36 +325,61 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                             .alignment(Alignment::Center)
                     };
 
-                    //TODO change to table to show item_id, item_type, item_title
-                    let widget_right = if !state.references_loading
-                        && let Some(selected_id) =
-                            selected_item(state, &state.agol_content).map(|item| item.id.as_str())
+                    let widget_bottom = if let Some(selected_id) =
+                        selected_item(state, &state.agol_content).map(|item| item.id.as_str())
                     {
+                        //TODO style selected table item and add to UiState
                         let references = utils::get_layer_references(selected_id, state);
-                        if !references.is_empty() {
-                            let references: Vec<String> =
-                                references.iter().map(|r| r.id.clone()).collect();
-                            List::new(references)
-                                .block(Block::bordered().title("References"))
-                                .style(Style::new().blue())
-                                .direction(ListDirection::TopToBottom)
-                        } else {
-                            List::default()
-                                .block(Block::bordered().title("No References"))
-                                .style(Style::new().red())
-                                .direction(ListDirection::TopToBottom)
+                        let mut sorted_references: Vec<ArcGISSearchResults> = Vec::new();
+                        for r in &references {
+                            sorted_references.push(r.clone());
                         }
+                        sorted_references.sort_by(|a, b| a.title.cmp(&b.title));
+                        // references.sort_by(|a, b| a);
+                        let header = Row::new(["Title", "Type", "Url"])
+                            .style(Style::new().bold())
+                            .bottom_margin(1);
+
+                        let mut rows: Vec<Row> = Vec::new();
+                        for r in sorted_references {
+                            let url = format!(
+                                "https://cityoflonetree.maps.arcgis.com/home/item.html?id={}",
+                                &r.id
+                            );
+                            rows.push(Row::new([r.title, r.item_type, url]));
+                        }
+                        //TODO change this to table
+
+                        let widths = [
+                            Constraint::Percentage(30),
+                            Constraint::Percentage(20),
+                            Constraint::Percentage(50),
+                        ];
+                        Table::new(rows, widths)
+                            .header(header)
+                            .column_spacing(1)
+                            .style(Color::White)
                     } else {
-                        List::default()
+                        let header = Row::new(["Title", "Type", "Url"]);
+                        let rows: Vec<Row> = Vec::new();
+                        let widths = [
+                            Constraint::Percentage(30),
+                            Constraint::Percentage(20),
+                            Constraint::Percentage(50),
+                        ];
+                        Table::new(rows, widths)
+                            .header(header)
+                            .column_spacing(1)
+                            .style(Color::White)
                     };
 
                     // if state.search_popup {
                     // } else {
-                    frame.render_stateful_widget(widget_left, layout[0], &mut state.list_state);
+                    frame.render_stateful_widget(widget_top, layout[0], &mut state.list_state);
 
                     frame.render_widget(widget_center, layout[1]);
 
-                    frame.render_widget(widget_right, layout[2]);
+                    frame.render_widget(widget_bottom, layout[2]);
                     // }
                 }
             }
