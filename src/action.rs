@@ -17,6 +17,7 @@ pub enum Action {
     Reset,
     NoOp,
     Quit,
+    YankToSystemClipboard,
     UserInputSearchTerm,
     UserInputSearchUsername,
     UserInputEnterChar(char),
@@ -152,6 +153,10 @@ fn search_by_keyword(state: &mut UiState) {
 }
 
 fn search_by_item_id(state: &mut UiState) {
+    todo!()
+}
+
+fn yank_selected_to_system_clipboard(state: &mut UiState) {
     todo!()
 }
 
