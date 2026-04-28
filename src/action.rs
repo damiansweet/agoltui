@@ -27,6 +27,8 @@ pub enum Action {
     UserInputFlipInputMode,
 }
 
+//TODO add copy selected id to system clipboard with full url for easy navigation
+
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
     if len == 0 {
         return None;
