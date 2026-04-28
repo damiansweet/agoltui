@@ -1,8 +1,6 @@
-use crate::ui::{Args, UiState};
-use agol::models::{ArcGISReferences, ArcGISSearchResults};
-use chrono::Local;
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use crate::ui::UiState;
+use agol::models::ArcGISSearchResults;
+use std::collections::HashSet;
 
 pub fn format_email(email: &str) -> &str {
     if email.eq_ignore_ascii_case("damian.sweet@cityoflonetree.com") {
@@ -41,30 +39,4 @@ pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearc
     } else {
         HashSet::new()
     }
-}
-
-pub fn load_all_content_from_file() -> Result<Vec<ArcGISSearchResults>, Box<dyn std::error::Error>>
-{
-    let data = std::fs::read_to_string("data/all_agol_content.json")?;
-
-    let data = serde_json::from_str(&data)?;
-    Ok(data)
-}
-
-pub fn pretty_write_all_layers_with_web_maps_to_file(
-    file_path: &Path,
-    all_layers: HashMap<String, HashSet<String>>,
-) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let file = std::fs::File::create(file_path).expect("failed to create file");
-    let writer = std::io::BufWriter::new(file);
-
-    serde_json::to_writer_pretty(writer, &all_layers)?;
-
-    Ok(())
-}
-
-fn get_current_time() -> std::result::Result<String, Box<dyn std::error::Error>> {
-    let dt = Local::now();
-    let date_string = dt.to_rfc2822();
-    Ok(date_string)
 }

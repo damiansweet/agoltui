@@ -5,7 +5,7 @@ use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use thiserror::Error;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 mod action;
 mod ui;
@@ -61,10 +61,13 @@ async fn process_references_only(
             .buffer_unordered(100);
 
     while let Some(web_app_references) = stream_of_futures.next().await {
-        if let Ok(r) = web_app_references {
-            for (k, v) in r.lookup {
-                references.lookup.entry(k).or_default().extend(v);
+        match web_app_references {
+            Ok(r) => {
+                for (k, v) in r.lookup {
+                    references.lookup.entry(k).or_default().extend(v);
+                }
             }
+            Err(e) => panic!("arcgis lib error: {:#?}", e),
         }
     }
 
