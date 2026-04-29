@@ -324,7 +324,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     } else {
                         Paragraph::new(layer_info_text)
                             .wrap(Wrap { trim: true })
-                            .block(Block::bordered().title("Layer Info"))
+                            .block(
+                                Block::bordered()
+                                    .title_alignment(Alignment::Center)
+                                    .title("Layer Info"),
+                            )
                             .style(Style::new().white())
                             .alignment(Alignment::Center)
                     };
@@ -352,7 +356,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                             );
                             rows.push(Row::new([r.title, r.item_type, url]));
                         }
-                        //TODO change this to table
+                        //TODO conditionally render no references if !sorted_references.is_empty()
 
                         let widths = [
                             Constraint::Percentage(30),
@@ -362,6 +366,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         Table::new(rows, widths)
                             .header(header)
                             .column_spacing(1)
+                            .block(
+                                Block::bordered()
+                                    .title_alignment(Alignment::Center)
+                                    .title("References"),
+                            )
                             .style(Color::White)
                     } else {
                         let header = Row::new(["Title", "Type", "Url"]);
@@ -373,6 +382,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         ];
                         Table::new(rows, widths)
                             .header(header)
+                            .block(
+                                Block::bordered()
+                                    .title_alignment(Alignment::Center)
+                                    .title("No References"),
+                            )
                             .column_spacing(1)
                             .style(Color::White)
                     };
