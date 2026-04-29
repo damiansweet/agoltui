@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use agol::models::{ArcGISReferences, ArcGISSearchResults};
+use agol::models::{ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
 
 use crate::utils;
@@ -16,6 +16,8 @@ use ratatui::{
 
 #[derive(Debug)]
 pub struct UiState {
+    pub org_id: String,
+    pub org_url: String,
     pub agol_content: Vec<ArcGISSearchResults>,
     pub agol_total_count: u32,
     pub references_lookup: ArcGISReferences,
@@ -80,6 +82,7 @@ pub fn init_state(
     agol_content: Vec<agol::models::ArcGISSearchResults>,
     agol_total_count: u32,
     references_lookup: ArcGISReferences,
+    org_info: ArcGISOrgInfo,
 ) -> UiState {
     let mut list_state = ListState::default();
     let selected = Some(0);
@@ -89,6 +92,8 @@ pub fn init_state(
     let loading = false;
     let search_popup = false;
     let input_mode = InputMode::Normal;
+    let org_id = org_info.org_id;
+    let org_url = org_info.url;
 
     let input = match &cli_input.email {
         Some(email) => email.to_string(),
@@ -122,6 +127,8 @@ pub fn init_state(
     // };
 
     UiState {
+        org_id,
+        org_url,
         agol_content,
         agol_total_count,
         selected,
@@ -350,10 +357,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                         let mut rows: Vec<Row> = Vec::new();
                         for r in sorted_references {
-                            let url = format!(
-                                "https://cityoflonetree.maps.arcgis.com/home/item.html?id={}",
-                                &r.id
-                            );
+                            let url = format!("{}/home/item.html?id={}", &state.org_url, &r.id);
                             rows.push(Row::new([r.title, r.item_type, url]));
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()

@@ -81,6 +81,8 @@ async fn main() -> Result<(), AppError> {
 
     let client = Arc::new(reqwest::Client::new());
     let access_token = Arc::new(agol::fetch_oauth2_agol_token(&client).await?);
+    let org_info = agol::fetch_org_info(&client, &access_token).await?;
+    // panic!("{:#?}", org_info);
 
     let total_agol_count = agol::fetch_agol_content_total_count(&client, &access_token).await?;
     let agol_items = fetch_agol_data(
@@ -107,6 +109,7 @@ async fn main() -> Result<(), AppError> {
         agol_items,
         total_agol_count,
         ArcGISReferences::default(),
+        org_info,
     );
     ui_state.references_loading = true;
 
