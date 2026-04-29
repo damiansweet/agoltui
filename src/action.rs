@@ -3,8 +3,7 @@ use crate::utils::{filter_layer_no_references, format_email};
 use std::sync::Arc;
 
 use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
-use crossterm::event::KeyCode;
-use ratatui::{Terminal, backend::Backend};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub enum Action {
     SyncData,
@@ -17,14 +16,11 @@ pub enum Action {
     Reset,
     NoOp,
     Quit,
-    YankToSystemClipboard,
     UserInputSearchTerm,
     UserInputSearchUsername,
     UserInputSearchId,
     UserInputEnterChar(char),
     UserInputDeleteChar,
-    UserInputMoveCursorLeft,
-    UserInputMoveCursorRight,
     UserInputSubmitQuery,
     UserInputFlipInputMode,
 }
@@ -87,10 +83,6 @@ fn delete_char(state: &mut UiState) {
 
 fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
     new_cursor_pos.clamp(0, state.user_input.input.chars().count())
-}
-
-fn reset_cursor(state: &mut UiState) {
-    state.user_input.character_index = 0;
 }
 
 fn filter_by_username_cli(state: &mut UiState) {
@@ -178,10 +170,6 @@ fn search_by_item_id(state: &mut UiState) {
     }
 }
 
-fn yank_selected_to_system_clipboard(state: &mut UiState) {
-    todo!()
-}
-
 fn flip_input_mode(state: &mut UiState) {
     match state.input_mode {
         InputMode::Normal => state.input_mode = InputMode::Editing,
@@ -228,6 +216,7 @@ async fn reset_filters(
         state.agol_content = agol_content;
         state.selected = Some(0);
         state.list_state.select_first();
+        state.user_input.character_index = 0;
         state.search_popup = false;
         state.usernames.clear();
         state.queries.clear();
@@ -237,21 +226,29 @@ async fn reset_filters(
     // dbg!(&state);
 }
 
-pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
+pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     match state.input_mode {
-        InputMode::Normal => match key {
-            KeyCode::Char('j') | KeyCode::Down => Action::MoveSelectionDown,
-            KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
-            KeyCode::Enter => Action::SyncData,
-            KeyCode::Char('0') => Action::ZeroReferences,
-            KeyCode::Char('f') => Action::FilterByUsernameCli,
-            KeyCode::Char('s') => Action::SearchByKeyword,
-            KeyCode::Char('u') => Action::ListUsers,
-            KeyCode::Esc => Action::Reset,
-            KeyCode::Char('q') => Action::Quit,
+        InputMode::Normal => match (key.code, key.modifiers) {
+            
+            //TODO fix rest of keybinds with adding modifiers
+               (KeyCode::Char('j'),KeyModifiers::NONE)
+                 
+            
+            // | KeyEvent {
+            //     modifiers: KeyModifier::NONE,
+            //     code: KeyCode::Down,
+             => Action::MoveSelectionDown,
+            // KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
+            // KeyCode::Enter => Action::SyncData,
+            // KeyCode::Char('0') => Action::ZeroReferences,
+            // KeyCode::Char('f') => Action::FilterByUsernameCli,
+            // KeyCode::Char('s') => Action::SearchByKeyword,
+            // KeyCode::Char('u') => Action::ListUsers,
+            // KeyCode::Esc => Action::Reset,
+            // KeyCode::Char('q') => Action::Quit,
             _ => Action::NoOp,
         },
-        InputMode::Editing => match key {
+        InputMode::Editing => match key.code {
             //TODO change below to be ctrl+ 1/2
             KeyCode::Home => Action::UserInputSearchTerm,
             KeyCode::End => Action::UserInputSearchUsername,
@@ -267,7 +264,6 @@ pub fn handle_key(state: &UiState, key: KeyCode) -> Action {
 
 pub async fn handle_action(
     state: &mut UiState,
-    terminal: &mut Terminal<impl Backend>,
     action: Action,
     client: &reqwest::Client,
     access_token: &ArcGISAccessToken,

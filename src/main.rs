@@ -125,9 +125,8 @@ async fn main() -> Result<(), AppError> {
             continue;
         }
         if let Event::Key(key) = event::read()? {
-            let action = action::handle_key(&ui_state, key.code);
-            action::handle_action(&mut ui_state, &mut terminal, action, &client, &access_token)
-                .await;
+            let action = action::handle_key(&ui_state, key);
+            action::handle_action(&mut ui_state, action, &client, &access_token).await;
         }
     }
 

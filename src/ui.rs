@@ -16,7 +16,6 @@ use ratatui::{
 
 #[derive(Debug)]
 pub struct UiState {
-    pub org_id: String,
     pub org_url: String,
     pub agol_content: Vec<ArcGISSearchResults>,
     pub agol_total_count: u32,
@@ -77,6 +76,7 @@ pub struct Args {
     #[arg(short, long)]
     pub search: Option<String>,
 }
+
 pub fn init_state(
     cli_input: Args,
     agol_content: Vec<agol::models::ArcGISSearchResults>,
@@ -92,7 +92,6 @@ pub fn init_state(
     let loading = false;
     let search_popup = false;
     let input_mode = InputMode::Normal;
-    let org_id = org_info.org_id;
     let org_url = org_info.url;
 
     let input = match &cli_input.email {
@@ -112,7 +111,7 @@ pub fn init_state(
     let mut username_state = TableState::default();
     username_state.select(Some(0));
 
-    let mut errors = None;
+    let errors = None;
 
     let search_type = SearchType::default();
     let queries = Vec::new();
@@ -127,7 +126,6 @@ pub fn init_state(
     // };
 
     UiState {
-        org_id,
         org_url,
         agol_content,
         agol_total_count,
