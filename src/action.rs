@@ -247,9 +247,9 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
         },
         InputMode::Editing => match (key.modifiers, key.code) {
             //TODO change below to be ctrl+ 1/2
-            (KeyModifiers::CONTROL, KeyCode::Char('1')) => Action::UserInputSearchTerm,
-            (KeyModifiers::CONTROL, KeyCode::Char('2')) => Action::UserInputSearchUsername,
-            (KeyModifiers::CONTROL, KeyCode::Char('3')) => Action::UserInputSearchId,
+            (KeyModifiers::NONE, KeyCode::F(1)) => Action::UserInputSearchTerm,
+            (KeyModifiers::NONE, KeyCode::F(2)) => Action::UserInputSearchUsername,
+            (KeyModifiers::NONE, KeyCode::F(3)) => Action::UserInputSearchId,
             (KeyModifiers::NONE, KeyCode::Char(typed_char))
             | (KeyModifiers::SHIFT, KeyCode::Char(typed_char)) => {
                 Action::UserInputEnterChar(typed_char)

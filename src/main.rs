@@ -1,6 +1,6 @@
 use agol::models::{AgolItemType, ArcGISAccessToken, ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyboardEnhancementFlags};
 use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use thiserror::Error;
