@@ -1,6 +1,6 @@
 use agol::models::{AgolItemType, ArcGISAccessToken, ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
-use crossterm::event::{self, Event, KeyboardEnhancementFlags};
+use crossterm::event::{self, Event};
 use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use thiserror::Error;
@@ -80,55 +80,96 @@ async fn main() -> Result<(), AppError> {
     let mut terminal = ratatui::init();
 
     let client = Arc::new(reqwest::Client::new());
-    let access_token = Arc::new(agol::fetch_oauth2_agol_token(&client).await?);
-    let org_info = agol::fetch_org_info(&client, &access_token).await?;
-    // panic!("{:#?}", org_info);
+    match agol::fetch_oauth2_agol_token(&client).await {
+        Ok(access_token) => {
+            let access_token = Arc::new(access_token);
+            let org_info = agol::fetch_org_info(&client, &access_token).await?;
+            // panic!("{:#?}", org_info);
 
-    let total_agol_count = agol::fetch_agol_content_total_count(&client, &access_token).await?;
-    let agol_items = fetch_agol_data(
-        Arc::clone(&client),
-        Arc::clone(&access_token),
-        total_agol_count,
-    )
-    .await?;
+            let total_agol_count =
+                agol::fetch_agol_content_total_count(&client, &access_token).await?;
+            let agol_items = fetch_agol_data(
+                Arc::clone(&client),
+                Arc::clone(&access_token),
+                total_agol_count,
+            )
+            .await?;
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
 
-    let client_bg = Arc::clone(&client);
-    let token_bg = Arc::clone(&access_token);
-    let items_bg = agol_items.clone();
+            let client_bg = Arc::clone(&client);
+            let token_bg = Arc::clone(&access_token);
+            let items_bg = agol_items.clone();
 
-    tokio::spawn(async move {
-        if let Ok(refs) = process_references_only(client_bg, token_bg, items_bg).await {
-            let _ = tx.send(refs).await;
+            tokio::spawn(async move {
+                if let Ok(refs) = process_references_only(client_bg, token_bg, items_bg).await {
+                    let _ = tx.send(refs).await;
+                }
+            });
+
+            let mut ui_state = ui::init_state(
+                args,
+                agol_items,
+                total_agol_count,
+                ArcGISReferences::default(),
+                org_info,
+            );
+            ui_state.references_loading = true;
+
+            while ui_state.running {
+                terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
+
+                if let Ok(refs) = rx.try_recv() {
+                    ui_state.references_lookup = refs;
+                    ui_state.references_loading = false;
+                }
+
+                if !event::poll(std::time::Duration::from_millis(16))? {
+                    continue;
+                }
+                if let Event::Key(key) = event::read()? {
+                    let action = action::handle_key(&ui_state, key);
+                    action::handle_action(&mut ui_state, action, &client, &access_token).await;
+                }
+            }
         }
-    });
+        //TODO match on specific error and render match error widget
+        Err(_) => {
+            // let errors = e;
+            let mut ui_state = ui::init_state(
+                args,
+                Vec::new(),
+                0,
+                ArcGISReferences::default(),
+                agol::models::ArcGISOrgInfo {
+                    org_id: String::default(),
+                    url_key: String::default(),
+                    full_url: String::default(),
+                },
+            );
 
-    let mut ui_state = ui::init_state(
-        args,
-        agol_items,
-        total_agol_count,
-        ArcGISReferences::default(),
-        org_info,
-    );
-    ui_state.references_loading = true;
+            ui_state.errors = Some(ui::Errors::NoAccessToken);
+            while ui_state.running {
+                terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
-    while ui_state.running {
-        terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
-
-        if let Ok(refs) = rx.try_recv() {
-            ui_state.references_lookup = refs;
-            ui_state.references_loading = false;
+                if !event::poll(std::time::Duration::from_millis(16))? {
+                    continue;
+                }
+                if let Event::Key(key) = event::read()? {
+                    let action = action::handle_key(&ui_state, key);
+                    action::handle_action(
+                        &mut ui_state,
+                        action,
+                        &client,
+                        &ArcGISAccessToken {
+                            access_token: String::default(),
+                        },
+                    )
+                    .await;
+                }
+            }
         }
-
-        if !event::poll(std::time::Duration::from_millis(16))? {
-            continue;
-        }
-        if let Event::Key(key) = event::read()? {
-            let action = action::handle_key(&ui_state, key);
-            action::handle_action(&mut ui_state, action, &client, &access_token).await;
-        }
-    }
+    };
 
     ratatui::restore();
     Ok(())

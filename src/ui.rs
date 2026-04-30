@@ -9,8 +9,8 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
     widgets::{
-        Block, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
-        Wrap,
+        Block, Cell, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table,
+        TableState, Wrap,
     },
 };
 
@@ -60,6 +60,8 @@ pub enum SearchType {
 #[derive(Debug)]
 pub enum Errors {
     NoAccessToken,
+    // TODO fetch all org usernames
+    //TODO create third widget and display if email not in org usernames
     EmailNotFound,
     InvalidUserInput,
 }
@@ -243,6 +245,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     let loading_screen_widget = loading_screen_widget();
                     frame.render_widget(loading_screen_widget, frame.area())
                 } else if !state.usernames.is_empty() {
+                    let current_query = state.queries.clone();
                     let rows: Vec<Row> = state
                         .usernames
                         .iter()
@@ -255,7 +258,12 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .style(Style::new().blue())
                         .highlight_symbol(">>")
                         .header(Row::new(vec!["Username", "# of Items"]))
+                        .footer(Row::new(vec![
+                            Cell::new("Query: "),
+                            Cell::new(current_query.join(" && ")),
+                        ]))
                         .block(Block::new().title("Usernames Table"));
+
                     frame.render_stateful_widget(
                         username_widget,
                         frame.area(),
