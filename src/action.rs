@@ -228,35 +228,35 @@ async fn reset_filters(
 
 pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     match state.input_mode {
-        InputMode::Normal => match (key.code, key.modifiers) {
-            
+        InputMode::Normal => match (key.modifiers, key.code) {
             //TODO fix rest of keybinds with adding modifiers
-               (KeyCode::Char('j'),KeyModifiers::NONE)
-                 
-            
-            // | KeyEvent {
-            //     modifiers: KeyModifier::NONE,
-            //     code: KeyCode::Down,
-             => Action::MoveSelectionDown,
-            // KeyCode::Char('k') | KeyCode::Up => Action::MoveSelectionUp,
-            // KeyCode::Enter => Action::SyncData,
-            // KeyCode::Char('0') => Action::ZeroReferences,
-            // KeyCode::Char('f') => Action::FilterByUsernameCli,
-            // KeyCode::Char('s') => Action::SearchByKeyword,
-            // KeyCode::Char('u') => Action::ListUsers,
-            // KeyCode::Esc => Action::Reset,
-            // KeyCode::Char('q') => Action::Quit,
+            (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
+                Action::MoveSelectionDown
+            }
+            (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
+                Action::MoveSelectionUp
+            }
+            (KeyModifiers::NONE, KeyCode::Enter) => Action::SyncData,
+            (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
+            (KeyModifiers::NONE, KeyCode::Char('f')) => Action::FilterByUsernameCli,
+            (KeyModifiers::NONE, KeyCode::Char('s')) => Action::SearchByKeyword,
+            (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
+            (KeyModifiers::NONE, KeyCode::Esc) => Action::Reset,
+            (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
             _ => Action::NoOp,
         },
-        InputMode::Editing => match key.code {
+        InputMode::Editing => match (key.modifiers, key.code) {
             //TODO change below to be ctrl+ 1/2
-            KeyCode::Home => Action::UserInputSearchTerm,
-            KeyCode::End => Action::UserInputSearchUsername,
-            KeyCode::PageUp => Action::UserInputSearchId,
-            KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
-            KeyCode::Backspace => Action::UserInputDeleteChar,
-            KeyCode::Esc => Action::UserInputFlipInputMode,
-            KeyCode::Enter => Action::UserInputSubmitQuery,
+            (KeyModifiers::CONTROL, KeyCode::Char('1')) => Action::UserInputSearchTerm,
+            (KeyModifiers::CONTROL, KeyCode::Char('2')) => Action::UserInputSearchUsername,
+            (KeyModifiers::CONTROL, KeyCode::Char('3')) => Action::UserInputSearchId,
+            (KeyModifiers::NONE, KeyCode::Char(typed_char))
+            | (KeyModifiers::SHIFT, KeyCode::Char(typed_char)) => {
+                Action::UserInputEnterChar(typed_char)
+            }
+            (KeyModifiers::NONE, KeyCode::Backspace) => Action::UserInputDeleteChar,
+            (KeyModifiers::NONE, KeyCode::Esc) => Action::UserInputFlipInputMode,
+            (KeyModifiers::NONE, KeyCode::Enter) => Action::UserInputSubmitQuery,
             _ => Action::NoOp,
         },
     }
