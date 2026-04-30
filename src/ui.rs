@@ -252,16 +252,13 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
                         .collect();
 
-                    let widths = [Constraint::Length(60), Constraint::Length(20)];
+                    let widths = [Constraint::Length(80), Constraint::Length(20)];
                     let username_widget = Table::new(rows, widths)
                         .column_spacing(1)
                         .style(Style::new().blue())
                         .highlight_symbol(">>")
                         .header(Row::new(vec!["Username", "# of Items"]))
-                        .footer(Row::new(vec![
-                            Cell::new("Query: "),
-                            Cell::new(current_query.join(" && ")),
-                        ]))
+                        .footer(Row::new(vec![Cell::new(current_query.join(" && "))]))
                         .block(Block::new().title("Usernames Table"));
 
                     frame.render_stateful_widget(
