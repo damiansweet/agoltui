@@ -46,6 +46,7 @@ async fn process_references_only(
 ) -> Result<ArcGISReferences, AppError> {
     let mut references = ArcGISReferences {
         lookup: HashMap::new(),
+        broken_connections: None,
     };
 
     let mut stream_of_futures =
@@ -65,6 +66,9 @@ async fn process_references_only(
             Ok(r) => {
                 for (k, v) in r.lookup {
                     references.lookup.entry(k).or_default().extend(v);
+                }
+                if let Some(broken) = r.broken_connections {
+                    let _ = references.broken_connections.insert(broken);
                 }
             }
             Err(e) => panic!("arcgis lib error: {:#?}", e),
@@ -120,6 +124,7 @@ async fn main() -> Result<(), AppError> {
                 terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
                 if let Ok(refs) = rx.try_recv() {
+                    //TODO if broken connections show errors widget listing them
                     ui_state.references_lookup = refs;
                     ui_state.references_loading = false;
                 }
