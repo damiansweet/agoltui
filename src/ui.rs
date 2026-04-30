@@ -16,7 +16,7 @@ use ratatui::{
 
 #[derive(Debug)]
 pub struct UiState {
-    pub org_url: String,
+    pub org_info: ArcGISOrgInfo,
     pub agol_content: Vec<ArcGISSearchResults>,
     pub agol_total_count: u32,
     pub references_lookup: ArcGISReferences,
@@ -91,7 +91,6 @@ pub fn init_state(
     let loading = false;
     let search_popup = false;
     let input_mode = InputMode::Normal;
-    let org_url = org_info.url;
 
     let input = match &cli_input.email {
         Some(email) => email.to_string(),
@@ -125,7 +124,7 @@ pub fn init_state(
     // };
 
     UiState {
-        org_url,
+        org_info,
         agol_content,
         agol_total_count,
         selected,
@@ -202,21 +201,34 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
         None => {
             if state.search_popup {
                 let query = state.user_input.input.clone();
+                let layout = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .split(frame.area());
                 let user_input = match state.search_type {
                     SearchType::Title => Paragraph::new(query)
                         .style(Style::new().light_blue())
-                        .block(Block::bordered().title("Enter Search Term")),
+                        .block(Block::bordered().title("Search by Keyword")),
                     SearchType::Owner => Paragraph::new(query)
                         .style(Style::new().yellow())
-                        .block(Block::bordered().title("Enter Username")),
+                        .block(Block::bordered().title("Search by Email")),
                     SearchType::Id => Paragraph::new(query)
                         .style(Style::new().light_cyan())
-                        .block(Block::bordered().title("Enter Item Id")),
+                        .block(Block::bordered().title("Search by Item Id")),
                 };
+
+                let key_binds =
+                    "Search by Keyword: <F1>\nSearch by Email: <F2>\nSearch by Item Id: <F3>";
+
+                let key_binds_widget = Paragraph::new(key_binds)
+                    .style(Style::new().light_blue())
+                    .block(Block::bordered().title("KeyBinds"));
 
                 let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());
-                frame.render_widget(user_input, input_area);
+                frame.render_widget(user_input, layout[0]);
+                frame.render_widget(key_binds_widget, layout[1]);
+
                 match state.input_mode {
                     InputMode::Normal => {}
                     InputMode::Editing => {
@@ -332,7 +344,8 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                         let mut rows: Vec<Row> = Vec::new();
                         for (i, r) in sorted_references.into_iter().enumerate() {
-                            let url = format!("{}/home/item.html?id={}", &state.org_url, &r.id);
+                            let url =
+                                format!("{}/home/item.html?id={}", &state.org_info.full_url, &r.id);
                             rows.push(Row::new([i.to_string(), r.title, r.item_type, url]));
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()

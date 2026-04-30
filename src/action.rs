@@ -104,7 +104,13 @@ fn filter_by_username_cli(state: &mut UiState) {
 }
 
 fn search_by_username(state: &mut UiState) {
-    let username = state.user_input.input.as_str();
+    let username = {
+        format!(
+            "{}_{}",
+            format_email(state.user_input.input.as_str()),
+            state.org_info.url_key
+        )
+    };
     let filtered_list: Vec<ArcGISSearchResults> = state
         .agol_content
         .iter()
