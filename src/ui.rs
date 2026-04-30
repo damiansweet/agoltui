@@ -185,10 +185,7 @@ fn loading_screen_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
-//TODO create widget that shows filter/search combos at bottom of screen
-
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
-    //TODO figure out way to have app_launch_widget be opening default
     match state.errors {
         Some(Errors::NoAccessToken) => {
             let no_access_token_error_widget = no_access_token_error_widget();
@@ -329,19 +326,20 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         }
                         sorted_references.sort_by(|a, b| a.title.cmp(&b.title));
                         // references.sort_by(|a, b| a);
-                        let header = Row::new(["Title", "Type", "Url"])
+                        let header = Row::new(["Index", "Title", "Type", "Url"])
                             .style(Style::new().bold())
                             .bottom_margin(1);
 
                         let mut rows: Vec<Row> = Vec::new();
-                        for r in sorted_references {
+                        for (i, r) in sorted_references.into_iter().enumerate() {
                             let url = format!("{}/home/item.html?id={}", &state.org_url, &r.id);
-                            rows.push(Row::new([r.title, r.item_type, url]));
+                            rows.push(Row::new([i.to_string(), r.title, r.item_type, url]));
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()
 
                         let widths = [
-                            Constraint::Percentage(30),
+                            Constraint::Percentage(5),
+                            Constraint::Percentage(25),
                             Constraint::Percentage(20),
                             Constraint::Percentage(50),
                         ];
@@ -355,10 +353,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                             )
                             .style(Color::White)
                     } else {
-                        let header = Row::new(["Title", "Type", "Url"]);
+                        let header = Row::new(["Index", "Title", "Type", "Url"]);
                         let rows: Vec<Row> = Vec::new();
                         let widths = [
-                            Constraint::Percentage(30),
+                            Constraint::Percentage(5),
+                            Constraint::Percentage(25),
                             Constraint::Percentage(20),
                             Constraint::Percentage(50),
                         ];
