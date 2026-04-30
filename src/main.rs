@@ -125,6 +125,9 @@ async fn main() -> Result<(), AppError> {
 
                 if let Ok(refs) = rx.try_recv() {
                     //TODO if broken connections show errors widget listing them
+                    // if let Some(broken_connections) = refs.broken_connections {
+                    //     // panic!("broken connections: {:?}", broken_connections);
+                    // }
                     ui_state.references_lookup = refs;
                     ui_state.references_loading = false;
                 }
