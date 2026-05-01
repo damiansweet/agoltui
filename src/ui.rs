@@ -62,7 +62,6 @@ pub enum Errors {
     NoAccessToken,
     // TODO fetch all org usernames
     //TODO create third widget and display if email not in org usernames
-    EmailNotFound,
     InvalidUserInput,
 }
 
@@ -163,13 +162,6 @@ fn no_access_token_error_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
-fn email_not_found_widget() -> Paragraph<'static> {
-    Paragraph::new("No username found")
-        .block(Block::bordered().title("Error"))
-        .style(Style::new().red())
-        .alignment(Alignment::Center)
-}
-
 fn invalid_user_input_widget() -> Paragraph<'static> {
     Paragraph::new("Query must be between 3-50 characters")
         .block(Block::bordered().title("Error"))
@@ -192,10 +184,6 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             let no_access_token_error_widget = no_access_token_error_widget();
 
             frame.render_widget(no_access_token_error_widget, frame.area())
-        }
-        Some(Errors::EmailNotFound) => {
-            let email_not_found_widget = email_not_found_widget();
-            frame.render_widget(email_not_found_widget, frame.area())
         }
         Some(Errors::InvalidUserInput) => {
             frame.render_widget(invalid_user_input_widget(), frame.area());
