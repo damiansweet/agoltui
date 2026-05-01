@@ -5,7 +5,7 @@ use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use thiserror::Error;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 mod action;
 mod ui;
@@ -46,7 +46,6 @@ async fn process_references_only(
 ) -> Result<ArcGISReferences, AppError> {
     let mut references = ArcGISReferences {
         lookup: HashMap::new(),
-        broken_connections: None,
     };
 
     let mut stream_of_futures =
@@ -66,9 +65,6 @@ async fn process_references_only(
             Ok(r) => {
                 for (k, v) in r.lookup {
                     references.lookup.entry(k).or_default().extend(v);
-                }
-                if let Some(broken) = r.broken_connections {
-                    let _ = references.broken_connections.insert(broken);
                 }
             }
             Err(e) => panic!("arcgis lib error: {:#?}", e),
@@ -99,6 +95,8 @@ async fn main() -> Result<(), AppError> {
             )
             .await?;
 
+            let valid_agol_item_ids = agol::extract_item_ids(&agol_items);
+
             let (tx, mut rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
 
             let client_bg = Arc::clone(&client);
@@ -113,7 +111,7 @@ async fn main() -> Result<(), AppError> {
 
             let mut ui_state = ui::init_state(
                 args,
-                agol_items,
+                agol_items.clone(),
                 total_agol_count,
                 ArcGISReferences::default(),
                 org_info,
@@ -128,6 +126,18 @@ async fn main() -> Result<(), AppError> {
                     // if let Some(broken_connections) = refs.broken_connections {
                     //     // panic!("broken connections: {:?}", broken_connections);
                     // }
+                    let mut broken_connections: HashSet<String> = HashSet::new();
+
+                    for (k, v) in &refs.lookup {
+                        if !valid_agol_item_ids.contains(&k.as_str()) {
+                            for j in v {
+                                broken_connections.insert(j.id.to_string());
+                            }
+                        }
+                    }
+                    //TODO add broken connections to UiState
+                    // panic!("broken connections: {:?}", broken_connections);
+
                     ui_state.references_lookup = refs;
                     ui_state.references_loading = false;
                 }
