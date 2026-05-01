@@ -27,10 +27,15 @@ async fn fetch_agol_data(
     client: Arc<reqwest::Client>,
     access_token: Arc<ArcGISAccessToken>,
     total_agol_count: u32,
+    org_id: &str,
 ) -> Result<Vec<ArcGISSearchResults>, AppError> {
-    let results =
-        agol::fetch_all_agol_content(client.clone(), access_token.clone(), total_agol_count)
-            .await?;
+    let results = agol::fetch_all_agol_content(
+        client.clone(),
+        access_token.clone(),
+        total_agol_count,
+        org_id,
+    )
+    .await?;
 
     // let mut references = ArcGISReferences {
     //     lookup: HashMap::new(),
@@ -87,11 +92,13 @@ async fn main() -> Result<(), AppError> {
             // panic!("{:#?}", org_info);
 
             let total_agol_count =
-                agol::fetch_agol_content_total_count(&client, &access_token).await?;
+                agol::fetch_agol_content_total_count(&client, &access_token, &org_info.org_id)
+                    .await?;
             let agol_items = fetch_agol_data(
                 Arc::clone(&client),
                 Arc::clone(&access_token),
                 total_agol_count,
+                &org_info.org_id,
             )
             .await?;
 

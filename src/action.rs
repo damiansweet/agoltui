@@ -216,8 +216,13 @@ async fn reset_filters(
     let client = Arc::new(client.clone());
     let access_token = Arc::new(access_token);
 
-    if let Ok(agol_content) =
-        agol::fetch_all_agol_content(client.clone(), access_token, state.agol_total_count).await
+    if let Ok(agol_content) = agol::fetch_all_agol_content(
+        client.clone(),
+        access_token,
+        state.agol_total_count,
+        &state.org_info.org_id,
+    )
+    .await
     {
         state.agol_content = agol_content;
         state.selected = Some(0);
