@@ -30,3 +30,4 @@ Organization ID will be extracted during the Oauth 2.0 token flow and used in or
   - F2 - toggle Email/Username search
   - F3 - toggle Item Id search
 - u - List item totals by User widget
+- q - Quit App
