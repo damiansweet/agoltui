@@ -92,7 +92,7 @@ fn filter_by_username_cli(state: &mut UiState) {
         let filtered_list: Vec<ArcGISSearchResults> = state
             .agol_content
             .iter()
-            .filter(|agol_item| agol_item.owner == format!("{email}_CityofLoneTree"))
+            .filter(|agol_item| agol_item.owner == email)
             .cloned()
             .collect();
 
@@ -104,13 +104,14 @@ fn filter_by_username_cli(state: &mut UiState) {
 }
 
 fn search_by_username(state: &mut UiState) {
-    let username = {
-        format!(
-            "{}_{}",
-            format_email(state.user_input.input.as_str()),
-            state.org_info.url_key
-        )
-    };
+    // let username = {
+    //     format!(
+    //         "{}_{}",
+    //         format_email(state.user_input.input.as_str()),
+    //         state.org_info.url_key
+    //     )
+    // };
+    let username = state.user_input.input.clone();
     let filtered_list: Vec<ArcGISSearchResults> = state
         .agol_content
         .iter()
@@ -230,6 +231,7 @@ async fn reset_filters(
         state.user_input.character_index = 0;
         state.search_popup = false;
         state.usernames.clear();
+        state.user_input.input.clear();
         state.queries.clear();
         state.errors = None;
     }
