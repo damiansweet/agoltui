@@ -1,6 +1,6 @@
 # AgolTui
 
-An ArcGIS Online admin cli tool written in rust. Main goal of this project is to simplify the process of identifying broken data connections in ArcGIS Online Web Maps/Apps when source data needs to be republished. 
+An ArcGIS Online admin cli tool written in rust. UI/widgets created using Ratatui. Main goal of this project is to simplify the process of identifying broken data connections in ArcGIS Online Web Maps/Apps when source data needs to be republished. 
 <img width="1261" height="1390" alt="screenshot-2026-05-01_11-49-11" src="https://github.com/user-attachments/assets/673f6fba-051d-46ee-b43c-ff3aede593d5" />
 
 ## Features
