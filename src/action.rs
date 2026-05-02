@@ -25,8 +25,6 @@ pub enum Action {
     UserInputFlipInputMode,
 }
 
-//TODO add copy selected id to system clipboard with full url for easy navigation
-
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
     if len == 0 {
         return None;
@@ -87,7 +85,6 @@ fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
 
 fn filter_by_username_cli(state: &mut UiState) {
     if let Some(email) = &state.cli_input.email {
-        //TODO verify email is in org
         let email = format_email(email);
         let filtered_list: Vec<ArcGISSearchResults> = state
             .agol_content
@@ -212,8 +209,6 @@ async fn reset_filters(
     client: &reqwest::Client,
     access_token: ArcGISAccessToken,
 ) {
-    // dbg!(&state);
-    //TODO create a filtered UiState struct field and reset to all content when called
     let client = Arc::new(client.clone());
     let access_token = Arc::new(access_token);
 
@@ -242,7 +237,6 @@ async fn reset_filters(
 pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     match state.input_mode {
         InputMode::Normal => match (key.modifiers, key.code) {
-            //TODO fix rest of keybinds with adding modifiers
             (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
                 Action::MoveSelectionDown
             }
@@ -259,7 +253,6 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             _ => Action::NoOp,
         },
         InputMode::Editing => match (key.modifiers, key.code) {
-            //TODO change below to be ctrl+ 1/2
             (KeyModifiers::NONE, KeyCode::F(1)) => Action::UserInputSearchTerm,
             (KeyModifiers::NONE, KeyCode::F(2)) => Action::UserInputSearchUsername,
             (KeyModifiers::NONE, KeyCode::F(3)) => Action::UserInputSearchId,

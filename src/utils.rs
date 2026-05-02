@@ -40,3 +40,24 @@ pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearc
         HashSet::new()
     }
 }
+
+pub fn previous_word_starting_index(word: &str) -> usize {
+    //TODO first get length of previous word
+    // TODO delete previous word from user_input
+    // TODO set cursor back length of previous word
+    let Some(previous_word) = word.split(" ").last() else {
+        return 0;
+    };
+    previous_word.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_previous_word_index() {
+        assert_eq!(previous_word_starting_index("hello"), 5);
+        assert_eq!(previous_word_starting_index("hello Rustacean"), 9);
+    }
+}

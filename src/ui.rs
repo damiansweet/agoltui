@@ -98,8 +98,6 @@ pub fn init_state(
         None => String::default(),
     };
 
-    //TODO put in logic to set user_input dynamically based on clap arguments passed in
-    //TODO validate user input is between 2-30 chars
     let user_input = UserInput {
         input,
         character_index: 0,
