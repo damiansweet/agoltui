@@ -41,23 +41,48 @@ pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearc
     }
 }
 
-pub fn previous_word_starting_index(word: &str) -> usize {
-    //TODO first get length of previous word
-    // TODO delete previous word from user_input
-    // TODO set cursor back length of previous word
-    let Some(previous_word) = word.split(" ").last() else {
-        return 0;
+pub fn helix_previous_word(state: &mut UiState) {
+    let text_before_cursor = &state.user_input.input[..state.user_input.character_index];
+    let trimmed = text_before_cursor.trim_end();
+
+    let new_index = if trimmed.is_empty() {
+        0
+    } else {
+        match trimmed.rfind(' ') {
+            Some(space_index) => space_index + 1,
+            None => 0,
+        }
     };
-    previous_word.len()
+
+    state.user_input.character_index = new_index;
+}
+
+pub fn helix_next_word(state: &mut UiState) {
+    let text_after_cursor = &state.user_input.input[state.user_input.character_index..];
+
+    let first_space = text_after_cursor
+        .char_indices()
+        .find(|(_, c)| c.is_whitespace());
+
+    if let Some((space_index, _)) = first_space {
+        let next_word_start = text_after_cursor[space_index..]
+            .char_indices()
+            .find(|(_, c)| !c.is_whitespace());
+
+        if let Some((start_index, _)) = next_word_start {
+            state.user_input.character_index = space_index + start_index;
+        } else {
+            state.user_input.character_index = state.user_input.input.len();
+        }
+    } else {
+        state.user_input.character_index = state.user_input.input.len();
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn check_previous_word_index() {
-        assert_eq!(previous_word_starting_index("hello"), 5);
-        assert_eq!(previous_word_starting_index("hello Rustacean"), 9);
-    }
+    // use super::*;
+    // #[test]
+    // fn test_helix_previous_word() {
+    // }
 }

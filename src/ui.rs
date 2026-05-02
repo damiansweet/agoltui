@@ -217,8 +217,14 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                 frame.render_widget(user_input, layout[0]);
                 frame.render_widget(key_binds_widget, layout[1]);
 
+                //TODO possible remove match and always show cursor. maybe blink when editing
                 match state.input_mode {
-                    InputMode::Normal => {}
+                    InputMode::Normal => {
+                        frame.set_cursor_position(Position::new(
+                            input_area.x + state.user_input.character_index as u16 + 1,
+                            input_area.y + 1,
+                        ));
+                    }
                     InputMode::Editing => {
                         frame.set_cursor_position(Position::new(
                             input_area.x + state.user_input.character_index as u16 + 1,

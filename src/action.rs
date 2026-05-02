@@ -1,5 +1,7 @@
 use crate::ui::{InputMode, SearchType, UiState};
-use crate::utils::{filter_layer_no_references, format_email};
+use crate::utils::{
+    filter_layer_no_references, format_email, helix_next_word, helix_previous_word,
+};
 use std::sync::Arc;
 
 use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
@@ -23,6 +25,8 @@ pub enum Action {
     UserInputDeleteChar,
     UserInputSubmitQuery,
     UserInputFlipInputMode,
+    HelixPreviousWord,
+    HelixNextWord,
 }
 
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
@@ -246,10 +250,15 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             (KeyModifiers::NONE, KeyCode::Enter) => Action::SyncData,
             (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
             (KeyModifiers::NONE, KeyCode::Char('f')) => Action::FilterByUsernameCli,
-            (KeyModifiers::NONE, KeyCode::Char('s')) => Action::SearchByKeyword,
+            //TODO if pressing s clear user input and then launch search
+            (KeyModifiers::NONE, KeyCode::Char('s')) | (KeyModifiers::NONE, KeyCode::Char('i')) => {
+                Action::SearchByKeyword
+            }
             (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
-            (KeyModifiers::NONE, KeyCode::Esc) => Action::Reset,
+            (KeyModifiers::NONE, KeyCode::Esc) if !state.search_popup => Action::Reset,
             (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
+            (KeyModifiers::NONE, KeyCode::Char('b')) => Action::HelixPreviousWord,
+            (KeyModifiers::NONE, KeyCode::Char('w')) => Action::HelixNextWord,
             _ => Action::NoOp,
         },
         InputMode::Editing => match (key.modifiers, key.code) {
@@ -371,6 +380,13 @@ pub async fn handle_action(
         Action::Quit => {
             state.running = false;
         }
+        Action::HelixPreviousWord => {
+            helix_previous_word(state);
+        }
+        Action::HelixNextWord => {
+            helix_next_word(state);
+        }
+        Action::NoOp => {}
         _ => {}
     }
 }
