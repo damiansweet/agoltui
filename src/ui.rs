@@ -5,6 +5,7 @@ use clap::Parser;
 
 use crate::utils;
 use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
@@ -40,7 +41,7 @@ pub struct UiState {
 pub struct UserInput {
     pub input: String,
     pub character_index: usize,
-    // pub input_mode: InputMode,
+    pub highlight_range: Option<(usize, usize)>,
 }
 
 #[derive(Debug)]
@@ -101,6 +102,7 @@ pub fn init_state(
     let user_input = UserInput {
         input,
         character_index: 0,
+        highlight_range: None,
     };
 
     let usernames = HashMap::new();
@@ -176,6 +178,65 @@ fn loading_screen_widget() -> Paragraph<'static> {
         .alignment(Alignment::Center)
 }
 
+fn build_input_spans(
+    text: &str,
+    cursor_pos: usize,
+    highlight_range: Option<(usize, usize)>,
+    input_mode: &InputMode,
+) -> Line<'static> {
+    let chars: Vec<char> = text.chars().collect();
+
+    match input_mode {
+        InputMode::Editing => {
+            let mut spans = Vec::new();
+            let before: String = chars[..cursor_pos.min(chars.len())].iter().collect();
+            let cursor_char = if cursor_pos < chars.len() {
+                chars[cursor_pos].to_string()
+            } else {
+                String::from(" ")
+            };
+            let after: String = chars[(cursor_pos + 1).min(chars.len())..].iter().collect();
+
+            if !before.is_empty() {
+                spans.push(Span::raw(before));
+            }
+            spans.push(Span::styled(
+                cursor_char,
+                Style::new().black().on_white(),
+            ));
+            if !after.is_empty() {
+                spans.push(Span::raw(after));
+            }
+            Line::from(spans)
+        }
+        InputMode::Normal => {
+            if let Some((a, b)) = highlight_range {
+                let start = a.min(b);
+                let end = a.max(b);
+                let before: String = chars[..start.min(chars.len())].iter().collect();
+                let highlighted: String =
+                    chars[start.min(chars.len())..end.min(chars.len())].iter().collect();
+                let after: String = chars[end.min(chars.len())..].iter().collect();
+
+                let mut spans = Vec::new();
+                if !before.is_empty() {
+                    spans.push(Span::raw(before));
+                }
+                spans.push(Span::styled(
+                    highlighted,
+                    Style::new().bold().white().on_light_blue(),
+                ));
+                if !after.is_empty() {
+                    spans.push(Span::raw(after));
+                }
+                Line::from(spans)
+            } else {
+                Line::raw(text.to_string())
+            }
+        }
+    }
+}
+
 pub fn ui(frame: &mut Frame, state: &mut UiState) {
     match state.errors {
         Some(Errors::NoAccessToken) => {
@@ -193,15 +254,20 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     .direction(Direction::Vertical)
                     .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
                     .split(frame.area());
+
+                let input_spans = build_input_spans(
+                    &query,
+                    state.user_input.character_index,
+                    state.user_input.highlight_range,
+                    &state.input_mode,
+                );
+
                 let user_input = match state.search_type {
-                    SearchType::Title => Paragraph::new(query)
-                        .style(Style::new().light_blue())
+                    SearchType::Title => Paragraph::new(input_spans.clone())
                         .block(Block::bordered().title("Search by Keyword")),
-                    SearchType::Owner => Paragraph::new(query)
-                        .style(Style::new().yellow())
+                    SearchType::Owner => Paragraph::new(input_spans.clone())
                         .block(Block::bordered().title("Search by Email")),
-                    SearchType::Id => Paragraph::new(query)
-                        .style(Style::new().light_cyan())
+                    SearchType::Id => Paragraph::new(input_spans.clone())
                         .block(Block::bordered().title("Search by Item Id")),
                 };
 
@@ -217,20 +283,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                 frame.render_widget(user_input, layout[0]);
                 frame.render_widget(key_binds_widget, layout[1]);
 
-                //TODO possible remove match and always show cursor. maybe blink when editing
-                match state.input_mode {
-                    InputMode::Normal => {
-                        frame.set_cursor_position(Position::new(
-                            input_area.x + state.user_input.character_index as u16 + 1,
-                            input_area.y + 1,
-                        ));
-                    }
-                    InputMode::Editing => {
-                        frame.set_cursor_position(Position::new(
-                            input_area.x + state.user_input.character_index as u16 + 1,
-                            input_area.y + 1,
-                        ));
-                    }
+                if matches!(state.input_mode, InputMode::Editing) {
+                    frame.set_cursor_position(Position::new(
+                        input_area.x + state.user_input.character_index as u16 + 1,
+                        input_area.y + 1,
+                    ));
                 }
             } else {
                 if state.loading {

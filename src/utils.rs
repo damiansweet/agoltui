@@ -41,8 +41,13 @@ pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearc
     }
 }
 
+pub fn clear_highlight(state: &mut UiState) {
+    state.user_input.highlight_range = None;
+}
+
 pub fn helix_previous_word(state: &mut UiState) {
-    let text_before_cursor = &state.user_input.input[..state.user_input.character_index];
+    let old_index = state.user_input.character_index;
+    let text_before_cursor = &state.user_input.input[..old_index];
     let trimmed = text_before_cursor.trim_end();
 
     let new_index = if trimmed.is_empty() {
@@ -55,27 +60,43 @@ pub fn helix_previous_word(state: &mut UiState) {
     };
 
     state.user_input.character_index = new_index;
+
+    if new_index != old_index {
+        state.user_input.highlight_range = Some((new_index, old_index));
+    } else {
+        state.user_input.highlight_range = None;
+    }
 }
 
 pub fn helix_next_word(state: &mut UiState) {
-    let text_after_cursor = &state.user_input.input[state.user_input.character_index..];
+    let old_index = state.user_input.character_index;
+    let char_count = state.user_input.input.chars().count();
+
+    let text_after_cursor: String = state.user_input.input.chars().skip(old_index).collect();
 
     let first_space = text_after_cursor
         .char_indices()
         .find(|(_, c)| c.is_whitespace());
 
-    if let Some((space_index, _)) = first_space {
-        let next_word_start = text_after_cursor[space_index..]
-            .char_indices()
-            .find(|(_, c)| !c.is_whitespace());
+    let new_index = if let Some((space_index, _)) = first_space {
+        let remaining = &text_after_cursor[space_index..];
+        let next_word_start = remaining.char_indices().find(|(_, c)| !c.is_whitespace());
 
         if let Some((start_index, _)) = next_word_start {
-            state.user_input.character_index = space_index + start_index;
+            old_index + space_index + start_index
         } else {
-            state.user_input.character_index = state.user_input.input.len();
+            char_count
         }
     } else {
-        state.user_input.character_index = state.user_input.input.len();
+        char_count
+    };
+
+    state.user_input.character_index = new_index;
+
+    if new_index != old_index {
+        state.user_input.highlight_range = Some((old_index, new_index));
+    } else {
+        state.user_input.highlight_range = None;
     }
 }
 

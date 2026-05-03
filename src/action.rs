@@ -1,6 +1,6 @@
 use crate::ui::{InputMode, SearchType, UiState};
 use crate::utils::{
-    filter_layer_no_references, format_email, helix_next_word, helix_previous_word,
+    clear_highlight, filter_layer_no_references, format_email, helix_next_word, helix_previous_word,
 };
 use std::sync::Arc;
 
@@ -148,8 +148,12 @@ fn search_by_keyword(state: &mut UiState) {
             state.queries.push(format!("Title ILIKE '%{query}%'"))
         };
         state.agol_content = search_results;
-        state.selected = Some(0);
-        state.list_state.select_first();
+        if state.agol_content.is_empty() {
+            state.selected = None;
+        } else {
+            state.selected = Some(0);
+            state.list_state.select_first();
+        }
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
     }
@@ -171,8 +175,12 @@ fn search_by_item_id(state: &mut UiState) {
             state.queries.push(format!("id == '{query}'"))
         };
         state.agol_content = search_results;
-        state.selected = Some(0);
-        state.list_state.select_first();
+        if state.agol_content.is_empty() {
+            state.selected = None;
+        } else {
+            state.selected = Some(0);
+            state.list_state.select_first();
+        }
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
     }
@@ -247,6 +255,9 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
                 Action::MoveSelectionUp
             }
+            (KeyModifiers::NONE, KeyCode::Enter) if state.search_popup => {
+                Action::UserInputSubmitQuery
+            }
             (KeyModifiers::NONE, KeyCode::Enter) => Action::SyncData,
             (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
             (KeyModifiers::NONE, KeyCode::Char('f')) => Action::FilterByUsernameCli,
@@ -255,7 +266,7 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
                 Action::SearchByKeyword
             }
             (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
-            (KeyModifiers::NONE, KeyCode::Esc) if !state.search_popup => Action::Reset,
+            (KeyModifiers::NONE, KeyCode::Esc) => Action::Reset,
             (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
             (KeyModifiers::NONE, KeyCode::Char('b')) => Action::HelixPreviousWord,
             (KeyModifiers::NONE, KeyCode::Char('w')) => Action::HelixNextWord,
@@ -319,8 +330,12 @@ pub async fn handle_action(
                 .cloned()
                 .collect();
             state.agol_content = list_content;
-            state.selected = Some(0);
-            state.list_state.select_first();
+            if state.agol_content.is_empty() {
+                state.selected = None;
+            } else {
+                state.selected = Some(0);
+                state.list_state.select_first();
+            }
             if !state.queries.contains(&String::from("Zero References")) {
                 state.queries.push(String::from("Zero References"))
             };
@@ -340,11 +355,16 @@ pub async fn handle_action(
         }
         Action::UserInputEnterChar(char) => {
             enter_char(state, char);
+            clear_highlight(state);
         }
         Action::UserInputDeleteChar => {
             delete_char(state);
+            clear_highlight(state);
         }
-        Action::UserInputFlipInputMode => flip_input_mode(state),
+        Action::UserInputFlipInputMode => {
+            flip_input_mode(state);
+            clear_highlight(state);
+        }
         Action::UserInputSearchTerm
             if state.search_type == SearchType::Owner || state.search_type == SearchType::Id =>
         {
@@ -363,14 +383,17 @@ pub async fn handle_action(
         Action::UserInputSubmitQuery if state.search_type == SearchType::Title => {
             search_by_keyword(state);
             flip_input_mode(state);
+            clear_highlight(state);
         }
         Action::UserInputSubmitQuery if state.search_type == SearchType::Owner => {
             search_by_username(state);
             flip_input_mode(state);
+            clear_highlight(state);
         }
         Action::UserInputSubmitQuery if state.search_type == SearchType::Id => {
             search_by_item_id(state);
             flip_input_mode(state);
+            clear_highlight(state);
         }
 
         Action::ListUsers => all_usernames(state),
