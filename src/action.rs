@@ -1,6 +1,6 @@
 use crate::ui::{InputMode, SearchType, UiState};
 use crate::utils::{
-    clear_highlight, filter_layer_no_references, format_email, helix_next_word, helix_previous_word,
+    clear_highlight, filter_layer_no_references, format_email, get_layer_references, helix_next_word, helix_previous_word,
 };
 use std::sync::Arc;
 
@@ -11,6 +11,9 @@ pub enum Action {
     SyncData,
     MoveSelectionDown,
     MoveSelectionUp,
+    MoveReferenceDown,
+    MoveReferenceUp,
+    SwitchFocus,
     ZeroReferences,
     FilterByUsernameCli,
     SearchByKeyword,
@@ -250,10 +253,18 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     match state.input_mode {
         InputMode::Normal => match (key.modifiers, key.code) {
             (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
-                Action::MoveSelectionDown
+                if state.focused_widget == crate::ui::FocusedWidget::TopList {
+                    Action::MoveSelectionDown
+                } else {
+                    Action::MoveReferenceDown
+                }
             }
             (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
-                Action::MoveSelectionUp
+                if state.focused_widget == crate::ui::FocusedWidget::TopList {
+                    Action::MoveSelectionUp
+                } else {
+                    Action::MoveReferenceUp
+                }
             }
             (KeyModifiers::NONE, KeyCode::Enter) if state.search_popup => {
                 Action::UserInputSubmitQuery
@@ -268,6 +279,7 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
             (KeyModifiers::NONE, KeyCode::Esc) => Action::Reset,
             (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
+            (KeyModifiers::NONE, KeyCode::Tab) => Action::SwitchFocus,
             (KeyModifiers::NONE, KeyCode::Char('b')) => Action::HelixPreviousWord,
             (KeyModifiers::NONE, KeyCode::Char('w')) => Action::HelixNextWord,
             _ => Action::NoOp,
@@ -304,6 +316,38 @@ pub async fn handle_action(
             let previous = move_selection(state.selected, state.agol_content.len(), -1);
             state.selected = previous;
             state.list_state.select(previous);
+        }
+        Action::MoveReferenceDown => {
+            if let Some(selected_id) = state.selected.and_then(|i| state.agol_content.get(i)).map(|item| item.id.as_str()) {
+                let references = get_layer_references(selected_id, state);
+                let len = references.len();
+                if len > 0 {
+                    let current = state.reference_table_state.selected().unwrap_or(0);
+                    let next = ((current as isize + 1).rem_euclid(len as isize)) as usize;
+                    state.reference_table_state.select(Some(next));
+                }
+            }
+        }
+        Action::MoveReferenceUp => {
+            if let Some(selected_id) = state.selected.and_then(|i| state.agol_content.get(i)).map(|item| item.id.as_str()) {
+                let references = get_layer_references(selected_id, state);
+                let len = references.len();
+                if len > 0 {
+                    let current = state.reference_table_state.selected().unwrap_or(0);
+                    let prev = ((current as isize - 1).rem_euclid(len as isize)) as usize;
+                    state.reference_table_state.select(Some(prev));
+                }
+            }
+        }
+        Action::SwitchFocus => {
+            match state.focused_widget {
+                crate::ui::FocusedWidget::TopList => {
+                    state.focused_widget = crate::ui::FocusedWidget::BottomTable;
+                }
+                crate::ui::FocusedWidget::BottomTable => {
+                    state.focused_widget = crate::ui::FocusedWidget::TopList;
+                }
+            }
         }
         Action::SyncData => {
             // state.loading = true;

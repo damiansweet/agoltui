@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
     widgets::{
-        Block, Cell, Clear, List, ListDirection, ListItem, ListState, Paragraph, Row, Table,
+        Block, Cell, Clear, HighlightSpacing, List, ListDirection, ListItem, ListState, Paragraph, Row, Table,
         TableState, Wrap,
     },
 };
@@ -23,6 +23,8 @@ pub struct UiState {
     pub references_lookup: ArcGISReferences,
     pub selected: Option<usize>,
     pub list_state: ListState,
+    pub reference_table_state: TableState,
+    pub focused_widget: FocusedWidget,
     pub running: bool,
     pub loading: bool,
     pub references_loading: bool,
@@ -35,6 +37,13 @@ pub struct UiState {
     pub cli_input: Args,
     pub errors: Option<Errors>,
     pub queries: Vec<String>,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum FocusedWidget {
+    #[default]
+    TopList,
+    BottomTable,
 }
 
 #[derive(Debug)]
@@ -88,6 +97,9 @@ pub fn init_state(
     let mut list_state = ListState::default();
     let selected = Some(0);
     list_state.select(selected);
+    let mut reference_table_state = TableState::default();
+    reference_table_state.select(Some(0));
+    let focused_widget = FocusedWidget::default();
     let running = true;
     let references_loading = false;
     let loading = false;
@@ -130,6 +142,8 @@ pub fn init_state(
         agol_total_count,
         selected,
         list_state,
+        reference_table_state,
+        focused_widget,
         running,
         loading,
         references_loading,
@@ -338,13 +352,27 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
-                                .title(format!("All AGOL Content List\t {num_list_items}")),
+                                .title(format!("All AGOL Content List\t {num_list_items}"))
+                                .style(
+                                    if state.focused_widget == FocusedWidget::TopList {
+                                        Style::new().bg(Color::DarkGray)
+                                    } else {
+                                        Style::new()
+                                    },
+                                ),
                         )
                         .style(Style::new().white())
-                        .highlight_style(Style::new().italic())
                         .highlight_symbol(">>")
+                        .highlight_spacing(HighlightSpacing::Always)
                         .repeat_highlight_symbol(true)
-                        .direction(ListDirection::TopToBottom);
+                        .direction(ListDirection::TopToBottom)
+                        .highlight_style(
+                            if state.focused_widget == FocusedWidget::TopList {
+                                Style::new().italic()
+                            } else {
+                                Style::new()
+                            },
+                        );
 
                     // let content_count = all_agol_content.len();
                     let selected_title = selected_item(state, &state.agol_content)
@@ -404,21 +432,49 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()
 
+                        let selected = state.reference_table_state.selected();
+                        if selected.is_none() || selected.unwrap_or(0) >= rows.len() {
+                            if !rows.is_empty() {
+                                state.reference_table_state.select(Some(0));
+                            }
+                        }
+
                         let widths = [
                             Constraint::Percentage(5),
                             Constraint::Percentage(25),
                             Constraint::Percentage(20),
                             Constraint::Percentage(50),
                         ];
-                        Table::new(rows, widths)
+                        let table = Table::new(rows, widths)
                             .header(header)
                             .column_spacing(1)
                             .block(
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
-                                    .title("References"),
+                                    .title("References")
+                                    .style(
+                                        if state.focused_widget == FocusedWidget::BottomTable {
+                                            Style::new().bg(Color::DarkGray)
+                                        } else {
+                                            Style::new()
+                                        },
+                                    ),
                             )
                             .style(Color::White)
+                            .highlight_symbol(">>")
+                            .highlight_spacing(if state.focused_widget == FocusedWidget::BottomTable {
+                                HighlightSpacing::Always
+                            } else {
+                                HighlightSpacing::Never
+                            })
+                            .row_highlight_style(
+                                if state.focused_widget == FocusedWidget::BottomTable {
+                                    Style::new().italic()
+                                } else {
+                                    Style::new()
+                                },
+                            );
+                        table
                     } else {
                         let header = Row::new(["Index", "Title", "Type", "Url"]);
                         let rows: Vec<Row> = Vec::new();
@@ -433,7 +489,14 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                             .block(
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
-                                    .title("No References"),
+                                    .title("No References")
+                                    .style(
+                                        if state.focused_widget == FocusedWidget::BottomTable {
+                                            Style::new().bg(Color::DarkGray)
+                                        } else {
+                                            Style::new()
+                                        },
+                                    ),
                             )
                             .column_spacing(1)
                             .style(Color::White)
@@ -445,7 +508,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                     frame.render_widget(widget_center, layout[1]);
 
-                    frame.render_widget(widget_bottom, layout[2]);
+                    frame.render_stateful_widget(
+                        widget_bottom,
+                        layout[2],
+                        &mut state.reference_table_state,
+                    );
                     // }
                 }
             }
