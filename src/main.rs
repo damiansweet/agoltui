@@ -51,6 +51,7 @@ async fn process_references_only(
 ) -> Result<ArcGISReferences, AppError> {
     let mut references = ArcGISReferences {
         lookup: HashMap::new(),
+        broken_connections: HashSet::new(),
     };
 
     let mut stream_of_futures =
@@ -128,22 +129,17 @@ async fn main() -> Result<(), AppError> {
             while ui_state.running {
                 terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
 
-                if let Ok(refs) = rx.try_recv() {
-                    //TODO if broken connections show errors widget listing them
-                    // if let Some(broken_connections) = refs.broken_connections {
-                    //     // panic!("broken connections: {:?}", broken_connections);
-                    // }
-                    let mut broken_connections: HashSet<String> = HashSet::new();
+                if let Ok(mut refs) = rx.try_recv() {
+                    let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
 
                     for (k, v) in &refs.lookup {
                         if !valid_agol_item_ids.contains(&k.as_str()) {
                             for j in v {
-                                broken_connections.insert(j.id.to_string());
+                                broken_connections.insert(j.clone());
                             }
                         }
                     }
-                    //TODO add broken connections to UiState
-                    // panic!("broken connections: {:?}", broken_connections);
+                    refs.broken_connections = broken_connections;
 
                     ui_state.references_lookup = refs;
                     ui_state.references_loading = false;

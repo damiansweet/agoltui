@@ -24,6 +24,7 @@ pub struct UiState {
     pub selected: Option<usize>,
     pub list_state: ListState,
     pub reference_table_state: TableState,
+    pub broken_connections_state: TableState,
     pub focused_widget: FocusedWidget,
     pub running: bool,
     pub loading: bool,
@@ -44,6 +45,7 @@ pub enum FocusedWidget {
     #[default]
     TopList,
     BottomTable,
+    BrokenConnections,
 }
 
 #[derive(Debug)]
@@ -122,6 +124,9 @@ pub fn init_state(
     let mut username_state = TableState::default();
     username_state.select(Some(0));
 
+    let mut broken_connections_state = TableState::default();
+    broken_connections_state.select(Some(0));
+
     let errors = None;
 
     let search_type = SearchType::default();
@@ -143,6 +148,7 @@ pub fn init_state(
         selected,
         list_state,
         reference_table_state,
+        broken_connections_state,
         focused_widget,
         running,
         loading,
@@ -328,6 +334,26 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         username_widget,
                         frame.area(),
                         &mut state.username_state,
+                    )
+                } else if state.focused_widget == FocusedWidget::BrokenConnections {
+                    let broken_connections: Vec<&ArcGISSearchResults> = state.references_lookup.broken_connections.iter().collect();
+                    let rows: Vec<Row> = broken_connections
+                        .iter()
+                        .map(|item| Row::new(vec![item.id.to_string(), item.title.clone(), item.item_type.clone()]))
+                        .collect();
+
+                    let widths = [Constraint::Percentage(30), Constraint::Percentage(35), Constraint::Percentage(35)];
+                    let broken_connections_widget = Table::new(rows, widths)
+                        .column_spacing(1)
+                        .style(Style::new().red())
+                        .highlight_symbol(">>")
+                        .header(Row::new(vec!["Item ID", "Title", "Type"]))
+                        .block(Block::new().title("Broken Connections"));
+
+                    frame.render_stateful_widget(
+                        broken_connections_widget,
+                        frame.area(),
+                        &mut state.broken_connections_state,
                     )
                 } else {
                     // let area = frame.area();

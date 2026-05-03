@@ -13,6 +13,8 @@ pub enum Action {
     MoveSelectionUp,
     MoveReferenceDown,
     MoveReferenceUp,
+    MoveBrokenConnectionDown,
+    MoveBrokenConnectionUp,
     SwitchFocus,
     ZeroReferences,
     FilterByUsernameCli,
@@ -30,6 +32,8 @@ pub enum Action {
     UserInputFlipInputMode,
     HelixPreviousWord,
     HelixNextWord,
+    FocusBrokenConnections,
+    GoBack,
 }
 
 fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<usize> {
@@ -255,15 +259,19 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
                 if state.focused_widget == crate::ui::FocusedWidget::TopList {
                     Action::MoveSelectionDown
-                } else {
+                } else if state.focused_widget == crate::ui::FocusedWidget::BottomTable {
                     Action::MoveReferenceDown
+                } else {
+                    Action::MoveBrokenConnectionDown
                 }
             }
             (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
                 if state.focused_widget == crate::ui::FocusedWidget::TopList {
                     Action::MoveSelectionUp
-                } else {
+                } else if state.focused_widget == crate::ui::FocusedWidget::BottomTable {
                     Action::MoveReferenceUp
+                } else {
+                    Action::MoveBrokenConnectionUp
                 }
             }
             (KeyModifiers::NONE, KeyCode::Enter) if state.search_popup => {
@@ -277,10 +285,17 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
                 Action::SearchByKeyword
             }
             (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
-            (KeyModifiers::NONE, KeyCode::Esc) => Action::Reset,
+            (KeyModifiers::NONE, KeyCode::Esc) => {
+                if state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
+                    Action::GoBack
+                } else {
+                    Action::Reset
+                }
+            }
             (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
             (KeyModifiers::NONE, KeyCode::Tab) => Action::SwitchFocus,
             (KeyModifiers::NONE, KeyCode::Char('b')) => Action::HelixPreviousWord,
+            (KeyModifiers::SHIFT, KeyCode::Char('B')) => Action::FocusBrokenConnections,
             (KeyModifiers::NONE, KeyCode::Char('w')) => Action::HelixNextWord,
             _ => Action::NoOp,
         },
@@ -339,6 +354,28 @@ pub async fn handle_action(
                 }
             }
         }
+        Action::MoveBrokenConnectionDown => {
+            let len = state.references_lookup.broken_connections.len();
+            if len > 0 {
+                let current = state.broken_connections_state.selected().unwrap_or(0);
+                let next = ((current as isize + 1).rem_euclid(len as isize)) as usize;
+                state.broken_connections_state.select(Some(next));
+            }
+        }
+        Action::MoveBrokenConnectionUp => {
+            let len = state.references_lookup.broken_connections.len();
+            if len > 0 {
+                let current = state.broken_connections_state.selected().unwrap_or(0);
+                let prev = ((current as isize - 1).rem_euclid(len as isize)) as usize;
+                state.broken_connections_state.select(Some(prev));
+            }
+        }
+        Action::FocusBrokenConnections => {
+            state.focused_widget = crate::ui::FocusedWidget::BrokenConnections;
+        }
+        Action::GoBack => {
+            state.focused_widget = crate::ui::FocusedWidget::TopList;
+        }
         Action::SwitchFocus => {
             match state.focused_widget {
                 crate::ui::FocusedWidget::TopList => {
@@ -347,6 +384,7 @@ pub async fn handle_action(
                 crate::ui::FocusedWidget::BottomTable => {
                     state.focused_widget = crate::ui::FocusedWidget::TopList;
                 }
+                crate::ui::FocusedWidget::BrokenConnections => {}
             }
         }
         Action::SyncData => {
@@ -443,6 +481,9 @@ pub async fn handle_action(
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
             reset_filters(state, client, access_token.clone()).await;
+            if state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
+                state.focused_widget = crate::ui::FocusedWidget::TopList;
+            }
         }
         Action::Quit => {
             state.running = false;
