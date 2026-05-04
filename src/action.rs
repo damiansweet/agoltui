@@ -1,6 +1,7 @@
 use crate::ui::{InputMode, SearchType, UiState};
 use crate::utils::{
-    clear_highlight, filter_layer_no_references, format_email, get_layer_references, helix_next_word, helix_previous_word,
+    clear_highlight, filter_layer_no_references, format_email, get_layer_references,
+    helix_next_word, helix_previous_word,
 };
 use std::sync::Arc;
 
@@ -253,6 +254,10 @@ async fn reset_filters(
     // dbg!(&state);
 }
 
+//TODO for broken connections list what the item title is that is broken not just web map/app
+//
+//
+//
 pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     match state.input_mode {
         InputMode::Normal => match (key.modifiers, key.code) {
@@ -333,7 +338,11 @@ pub async fn handle_action(
             state.list_state.select(previous);
         }
         Action::MoveReferenceDown => {
-            if let Some(selected_id) = state.selected.and_then(|i| state.agol_content.get(i)).map(|item| item.id.as_str()) {
+            if let Some(selected_id) = state
+                .selected
+                .and_then(|i| state.agol_content.get(i))
+                .map(|item| item.id.as_str())
+            {
                 let references = get_layer_references(selected_id, state);
                 let len = references.len();
                 if len > 0 {
@@ -344,7 +353,11 @@ pub async fn handle_action(
             }
         }
         Action::MoveReferenceUp => {
-            if let Some(selected_id) = state.selected.and_then(|i| state.agol_content.get(i)).map(|item| item.id.as_str()) {
+            if let Some(selected_id) = state
+                .selected
+                .and_then(|i| state.agol_content.get(i))
+                .map(|item| item.id.as_str())
+            {
                 let references = get_layer_references(selected_id, state);
                 let len = references.len();
                 if len > 0 {
@@ -376,17 +389,15 @@ pub async fn handle_action(
         Action::GoBack => {
             state.focused_widget = crate::ui::FocusedWidget::TopList;
         }
-        Action::SwitchFocus => {
-            match state.focused_widget {
-                crate::ui::FocusedWidget::TopList => {
-                    state.focused_widget = crate::ui::FocusedWidget::BottomTable;
-                }
-                crate::ui::FocusedWidget::BottomTable => {
-                    state.focused_widget = crate::ui::FocusedWidget::TopList;
-                }
-                crate::ui::FocusedWidget::BrokenConnections => {}
+        Action::SwitchFocus => match state.focused_widget {
+            crate::ui::FocusedWidget::TopList => {
+                state.focused_widget = crate::ui::FocusedWidget::BottomTable;
             }
-        }
+            crate::ui::FocusedWidget::BottomTable => {
+                state.focused_widget = crate::ui::FocusedWidget::TopList;
+            }
+            crate::ui::FocusedWidget::BrokenConnections => {}
+        },
         Action::SyncData => {
             // state.loading = true;
             // state.errors = None;
