@@ -3,9 +3,8 @@ use crate::utils::{
     clear_highlight, filter_layer_no_references, format_email, get_layer_references,
     helix_next_word, helix_previous_word,
 };
-use std::sync::Arc;
 
-use agol::models::{ArcGISAccessToken, ArcGISSearchResults};
+use agol::models::ArcGISSearchResults;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub enum Action {
@@ -99,13 +98,14 @@ fn filter_by_username_cli(state: &mut UiState) {
     if let Some(email) = &state.cli_input.email {
         let email = format_email(email);
         let filtered_list: Vec<ArcGISSearchResults> = state
+            .agol
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.owner == email)
             .cloned()
             .collect();
 
-        state.agol_content = filtered_list;
+        state.agol.agol_content = filtered_list;
         if !state.queries.contains(&format!("Username == {email}")) {
             state.queries.push(format!("Username == {email}"))
         };
@@ -122,13 +122,14 @@ fn search_by_username(state: &mut UiState) {
     // };
     let username = state.user_input.input.clone();
     let filtered_list: Vec<ArcGISSearchResults> = state
+        .agol
         .agol_content
         .iter()
         .filter(|agol_item| agol_item.owner == username)
         .cloned()
         .collect();
 
-    state.agol_content = filtered_list;
+    state.agol.agol_content = filtered_list;
     state.search_popup = false;
     if !state
         .queries
@@ -145,6 +146,7 @@ fn search_by_keyword(state: &mut UiState) {
 
     if query.len() >= 3 && query.len() <= 50 {
         let search_results: Vec<ArcGISSearchResults> = state
+            .agol
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
@@ -155,12 +157,11 @@ fn search_by_keyword(state: &mut UiState) {
         if !state.queries.contains(&format!("title ILIKE '%{query}%'")) {
             state.queries.push(format!("Title ILIKE '%{query}%'"))
         };
-        state.agol_content = search_results;
-        if state.agol_content.is_empty() {
-            state.selected = None;
+        state.agol.agol_content = search_results;
+        if state.agol.agol_content.is_empty() {
+            state.agol_content_widget_state.select(None);
         } else {
-            state.selected = Some(0);
-            state.list_state.select_first();
+            state.agol_content_widget_state.select(Some(0));
         }
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
@@ -172,6 +173,7 @@ fn search_by_item_id(state: &mut UiState) {
 
     if query.len() >= 3 && query.len() <= 50 {
         let search_results: Vec<ArcGISSearchResults> = state
+            .agol
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.id == *query)
@@ -182,12 +184,11 @@ fn search_by_item_id(state: &mut UiState) {
         if !state.queries.contains(&format!("id == '{query}'")) {
             state.queries.push(format!("id == '{query}'"))
         };
-        state.agol_content = search_results;
-        if state.agol_content.is_empty() {
-            state.selected = None;
+        state.agol.agol_content = search_results;
+        if state.agol.agol_content.is_empty() {
+            state.agol_content_widget_state.select(None);
         } else {
-            state.selected = Some(0);
-            state.list_state.select_first();
+            state.agol_content_widget_state.select(Some(0));
         }
     } else {
         state.errors = Some(crate::ui::Errors::InvalidUserInput);
@@ -215,7 +216,7 @@ fn launch_search(state: &mut UiState) {
 }
 
 fn all_usernames(state: &mut UiState) {
-    state.agol_content.iter().for_each(|agol_item| {
+    state.agol.agol_content.iter().for_each(|agol_item| {
         state
             .usernames
             .entry(agol_item.owner.clone())
@@ -224,32 +225,15 @@ fn all_usernames(state: &mut UiState) {
     });
 }
 
-async fn reset_filters(
-    state: &mut UiState,
-    client: &reqwest::Client,
-    access_token: ArcGISAccessToken,
-) {
-    let client = Arc::new(client.clone());
-    let access_token = Arc::new(access_token);
-
-    if let Ok(agol_content) = agol::fetch_all_agol_content(
-        client.clone(),
-        access_token,
-        state.agol_total_count,
-        &state.org_info.org_id,
-    )
-    .await
-    {
-        state.agol_content = agol_content;
-        state.selected = Some(0);
-        state.list_state.select_first();
-        state.user_input.character_index = 0;
-        state.search_popup = false;
-        state.usernames.clear();
-        state.user_input.input.clear();
-        state.queries.clear();
-        state.errors = None;
-    }
+async fn reset_filters(state: &mut UiState) {
+    state.agol.agol_content = state.agol.cached_agol_content.clone();
+    state.agol_content_widget_state.select(Some(0));
+    state.user_input.character_index = 0;
+    state.search_popup = false;
+    state.usernames.clear();
+    state.user_input.input.clear();
+    state.queries.clear();
+    state.errors = None;
 
     // dbg!(&state);
 }
@@ -320,27 +304,29 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     }
 }
 
-pub async fn handle_action(
-    state: &mut UiState,
-    action: Action,
-    client: &reqwest::Client,
-    access_token: &ArcGISAccessToken,
-) {
+pub async fn handle_action(state: &mut UiState, action: Action) {
     match action {
         Action::MoveSelectionDown => {
-            let next = move_selection(state.selected, state.agol_content.len(), 1);
-            state.selected = next;
-            state.list_state.select(next);
+            let next = move_selection(
+                state.agol_content_widget_state.selected(),
+                state.agol.agol_content.len(),
+                1,
+            );
+            state.agol_content_widget_state.select(next);
         }
         Action::MoveSelectionUp => {
-            let previous = move_selection(state.selected, state.agol_content.len(), -1);
-            state.selected = previous;
-            state.list_state.select(previous);
+            let previous = move_selection(
+                state.agol_content_widget_state.selected(),
+                state.agol.agol_content.len(),
+                -1,
+            );
+            state.agol_content_widget_state.select(previous);
         }
         Action::MoveReferenceDown => {
             if let Some(selected_id) = state
-                .selected
-                .and_then(|i| state.agol_content.get(i))
+                .agol_content_widget_state
+                .selected()
+                .and_then(|i| state.agol.agol_content.get(i))
                 .map(|item| item.id.as_str())
             {
                 let references = get_layer_references(selected_id, state);
@@ -354,8 +340,9 @@ pub async fn handle_action(
         }
         Action::MoveReferenceUp => {
             if let Some(selected_id) = state
-                .selected
-                .and_then(|i| state.agol_content.get(i))
+                .agol_content_widget_state
+                .selected()
+                .and_then(|i| state.agol.agol_content.get(i))
                 .map(|item| item.id.as_str())
             {
                 let references = get_layer_references(selected_id, state);
@@ -368,7 +355,7 @@ pub async fn handle_action(
             }
         }
         Action::MoveBrokenConnectionDown => {
-            let len = state.references_lookup.broken_connections.len();
+            let len = state.agol.references.broken_connections.len();
             if len > 0 {
                 let current = state.broken_connections_state.selected().unwrap_or(0);
                 let next = ((current as isize + 1).rem_euclid(len as isize)) as usize;
@@ -376,7 +363,7 @@ pub async fn handle_action(
             }
         }
         Action::MoveBrokenConnectionUp => {
-            let len = state.references_lookup.broken_connections.len();
+            let len = state.agol.references.broken_connections.len();
             if len > 0 {
                 let current = state.broken_connections_state.selected().unwrap_or(0);
                 let prev = ((current as isize - 1).rem_euclid(len as isize)) as usize;
@@ -422,12 +409,11 @@ pub async fn handle_action(
                 .into_iter()
                 .cloned()
                 .collect();
-            state.agol_content = list_content;
-            if state.agol_content.is_empty() {
-                state.selected = None;
+            state.agol.agol_content = list_content;
+            if state.agol.agol_content.is_empty() {
+                state.agol_content_widget_state.select(None);
             } else {
-                state.selected = Some(0);
-                state.list_state.select_first();
+                state.agol_content_widget_state.select(Some(0))
             }
             if !state.queries.contains(&String::from("Zero References")) {
                 state.queries.push(String::from("Zero References"))
@@ -491,7 +477,7 @@ pub async fn handle_action(
 
         Action::ListUsers => all_usernames(state),
         Action::Reset => {
-            reset_filters(state, client, access_token.clone()).await;
+            reset_filters(state).await;
             if state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
                 state.focused_widget = crate::ui::FocusedWidget::TopList;
             }

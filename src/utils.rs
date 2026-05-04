@@ -17,13 +17,14 @@ pub fn format_email(email: &str) -> &str {
 //TODO test how many results come from this
 pub fn filter_layer_no_references(state: &mut UiState) -> Vec<&ArcGISSearchResults> {
     let mut no_reference_ids = Vec::new();
-    for (k, v) in &state.references_lookup.lookup {
+    for (k, v) in &state.agol.references.lookup {
         if v.is_empty() {
             no_reference_ids.push(k)
         }
     }
 
     state
+        .agol
         .agol_content
         .iter()
         .filter(|c| {
@@ -34,7 +35,7 @@ pub fn filter_layer_no_references(state: &mut UiState) -> Vec<&ArcGISSearchResul
 
 //TODO call this from action not UI
 pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearchResults> {
-    if let Some(references) = ui_state.references_lookup.lookup.get(id) {
+    if let Some(references) = ui_state.agol.references.lookup.get(id) {
         references.clone()
     } else {
         HashSet::new()

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use agol::ArcGISAccessToken;
 use agol::models::{ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults};
 use clap::Parser;
 
@@ -10,19 +12,16 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
     widgets::{
-        Block, Cell, Clear, HighlightSpacing, List, ListDirection, ListItem, ListState, Paragraph, Row, Table,
-        TableState, Wrap,
+        Block, Cell, Clear, HighlightSpacing, List, ListDirection, ListItem, ListState, Paragraph,
+        Row, Table, TableState, Wrap,
     },
 };
 
 #[derive(Debug)]
 pub struct UiState {
-    pub org_info: ArcGISOrgInfo,
-    pub agol_content: Vec<ArcGISSearchResults>,
-    pub agol_total_count: u32,
-    pub references_lookup: ArcGISReferences,
-    pub selected: Option<usize>,
-    pub list_state: ListState,
+    pub agol: Agol,
+    pub config: Config,
+    pub agol_content_widget_state: ListState,
     pub reference_table_state: TableState,
     pub broken_connections_state: TableState,
     pub focused_widget: FocusedWidget,
@@ -38,6 +37,19 @@ pub struct UiState {
     pub cli_input: Args,
     pub errors: Option<Errors>,
     pub queries: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub org_info: ArcGISOrgInfo,
+    pub access_token: Arc<ArcGISAccessToken>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Agol {
+    pub agol_content: Vec<ArcGISSearchResults>,
+    pub cached_agol_content: Vec<ArcGISSearchResults>,
+    pub references: ArcGISReferences,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -89,16 +101,11 @@ pub struct Args {
     pub search: Option<String>,
 }
 
-pub fn init_state(
-    cli_input: Args,
-    agol_content: Vec<agol::models::ArcGISSearchResults>,
-    agol_total_count: u32,
-    references_lookup: ArcGISReferences,
-    org_info: ArcGISOrgInfo,
-) -> UiState {
-    let mut list_state = ListState::default();
+pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> UiState {
+    let mut agol_content_widget_state = ListState::default();
     let selected = Some(0);
-    list_state.select(selected);
+    agol_content_widget_state.select(selected);
+
     let mut reference_table_state = TableState::default();
     reference_table_state.select(Some(0));
     let focused_widget = FocusedWidget::default();
@@ -132,21 +139,10 @@ pub fn init_state(
     let search_type = SearchType::default();
     let queries = Vec::new();
 
-    // let agol_content = if let Ok(agol_content) = utils::load_all_content_from_file() {
-    //     agol_content
-    // } else {
-    //     errors = Some(Errors::NoExistingData);
-    //     Vec::new()
-    //     // let _ = utils::refresh_data(&client, &access_token);
-    //     // utils::load_all_content_from_file().expect("unable to read from all content json")
-    // };
-
     UiState {
-        org_info,
-        agol_content,
-        agol_total_count,
-        selected,
-        list_state,
+        agol,
+        config,
+        agol_content_widget_state,
         reference_table_state,
         broken_connections_state,
         focused_widget,
@@ -162,7 +158,6 @@ pub fn init_state(
         username_state,
         errors,
         queries,
-        references_lookup,
     }
 }
 
@@ -170,7 +165,10 @@ fn selected_item<'a>(
     state: &UiState,
     items: &'a [ArcGISSearchResults],
 ) -> Option<&'a ArcGISSearchResults> {
-    state.selected.and_then(|i| items.get(i))
+    state
+        .agol_content_widget_state
+        .selected()
+        .and_then(|i| items.get(i))
 }
 
 // ERROR WIDGETS
@@ -220,10 +218,7 @@ fn build_input_spans(
             if !before.is_empty() {
                 spans.push(Span::raw(before));
             }
-            spans.push(Span::styled(
-                cursor_char,
-                Style::new().black().on_white(),
-            ));
+            spans.push(Span::styled(cursor_char, Style::new().black().on_white()));
             if !after.is_empty() {
                 spans.push(Span::raw(after));
             }
@@ -234,8 +229,9 @@ fn build_input_spans(
                 let start = a.min(b);
                 let end = a.max(b);
                 let before: String = chars[..start.min(chars.len())].iter().collect();
-                let highlighted: String =
-                    chars[start.min(chars.len())..end.min(chars.len())].iter().collect();
+                let highlighted: String = chars[start.min(chars.len())..end.min(chars.len())]
+                    .iter()
+                    .collect();
                 let after: String = chars[end.min(chars.len())..].iter().collect();
 
                 let mut spans = Vec::new();
@@ -336,13 +332,24 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         &mut state.username_state,
                     )
                 } else if state.focused_widget == FocusedWidget::BrokenConnections {
-                    let broken_connections: Vec<&ArcGISSearchResults> = state.references_lookup.broken_connections.iter().collect();
+                    let broken_connections: Vec<&ArcGISSearchResults> =
+                        state.agol.references.broken_connections.iter().collect();
                     let rows: Vec<Row> = broken_connections
                         .iter()
-                        .map(|item| Row::new(vec![item.id.to_string(), item.title.clone(), item.item_type.clone()]))
+                        .map(|item| {
+                            Row::new(vec![
+                                item.id.to_string(),
+                                item.title.clone(),
+                                item.item_type.clone(),
+                            ])
+                        })
                         .collect();
 
-                    let widths = [Constraint::Percentage(30), Constraint::Percentage(35), Constraint::Percentage(35)];
+                    let widths = [
+                        Constraint::Percentage(30),
+                        Constraint::Percentage(35),
+                        Constraint::Percentage(35),
+                    ];
                     let broken_connections_widget = Table::new(rows, widths)
                         .column_spacing(1)
                         .style(Style::new().red())
@@ -367,49 +374,46 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .split(frame.area());
 
                     let all_content_ids: Vec<ListItem> = state
+                        .agol
                         .agol_content
                         .iter()
                         .map(|item| ListItem::new(item.id.clone()))
                         .collect();
 
-                    let num_list_items = state.agol_content.len();
+                    let num_list_items = state.agol.agol_content.len();
 
                     let widget_top = List::new(all_content_ids)
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
                                 .title(format!("All AGOL Content List\t {num_list_items}"))
-                                .style(
-                                    if state.focused_widget == FocusedWidget::TopList {
-                                        Style::new().bg(Color::DarkGray)
-                                    } else {
-                                        Style::new()
-                                    },
-                                ),
+                                .style(if state.focused_widget == FocusedWidget::TopList {
+                                    Style::new().bg(Color::DarkGray)
+                                } else {
+                                    Style::new()
+                                }),
                         )
                         .style(Style::new().white())
                         .highlight_symbol(">>")
                         .highlight_spacing(HighlightSpacing::Always)
                         .repeat_highlight_symbol(true)
                         .direction(ListDirection::TopToBottom)
-                        .highlight_style(
-                            if state.focused_widget == FocusedWidget::TopList {
-                                Style::new().italic()
-                            } else {
-                                Style::new()
-                            },
-                        );
+                        .highlight_style(if state.focused_widget == FocusedWidget::TopList {
+                            Style::new().italic()
+                        } else {
+                            Style::new()
+                        });
 
                     // let content_count = all_agol_content.len();
-                    let selected_title = selected_item(state, &state.agol_content)
+                    let selected_title = selected_item(state, &state.agol.agol_content)
                         .map(|item| item.title.as_str())
                         .unwrap_or_default();
 
-                    let selected_item_type = selected_item(state, &state.agol_content)
+                    let selected_item_type = selected_item(state, &state.agol.agol_content)
                         .map(|item| item.item_type.as_str())
                         .unwrap_or_default();
 
-                    let selected_owner = selected_item(state, &state.agol_content)
+                    let selected_owner = selected_item(state, &state.agol.agol_content)
                         .map(|item| item.owner.as_str())
                         .unwrap_or_default();
 
@@ -436,7 +440,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     };
 
                     let widget_bottom = if let Some(selected_id) =
-                        selected_item(state, &state.agol_content).map(|item| item.id.as_str())
+                        selected_item(state, &state.agol.agol_content).map(|item| item.id.as_str())
                     {
                         //TODO style selected table item and add to UiState
                         let references = utils::get_layer_references(selected_id, state);
@@ -452,17 +456,19 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                         let mut rows: Vec<Row> = Vec::new();
                         for (i, r) in sorted_references.into_iter().enumerate() {
-                            let url =
-                                format!("{}/home/item.html?id={}", &state.org_info.full_url, &r.id);
+                            let url = format!(
+                                "{}/home/item.html?id={}",
+                                &state.config.org_info.full_url, &r.id
+                            );
                             rows.push(Row::new([i.to_string(), r.title, r.item_type, url]));
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()
 
                         let selected = state.reference_table_state.selected();
-                        if selected.is_none() || selected.unwrap_or(0) >= rows.len() {
-                            if !rows.is_empty() {
-                                state.reference_table_state.select(Some(0));
-                            }
+                        if selected.is_none()
+                            || selected.unwrap_or(0) >= rows.len() && !rows.is_empty()
+                        {
+                            state.reference_table_state.select(Some(0));
                         }
 
                         let widths = [
@@ -471,36 +477,35 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                             Constraint::Percentage(20),
                             Constraint::Percentage(50),
                         ];
-                        let table = Table::new(rows, widths)
+                        Table::new(rows, widths)
                             .header(header)
                             .column_spacing(1)
                             .block(
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
                                     .title("References")
-                                    .style(
-                                        if state.focused_widget == FocusedWidget::BottomTable {
-                                            Style::new().bg(Color::DarkGray)
-                                        } else {
-                                            Style::new()
-                                        },
-                                    ),
+                                    .style(if state.focused_widget == FocusedWidget::BottomTable {
+                                        Style::new().bg(Color::DarkGray)
+                                    } else {
+                                        Style::new()
+                                    }),
                             )
                             .style(Color::White)
                             .highlight_symbol(">>")
-                            .highlight_spacing(if state.focused_widget == FocusedWidget::BottomTable {
-                                HighlightSpacing::Always
-                            } else {
-                                HighlightSpacing::Never
-                            })
+                            .highlight_spacing(
+                                if state.focused_widget == FocusedWidget::BottomTable {
+                                    HighlightSpacing::Always
+                                } else {
+                                    HighlightSpacing::Never
+                                },
+                            )
                             .row_highlight_style(
                                 if state.focused_widget == FocusedWidget::BottomTable {
                                     Style::new().italic()
                                 } else {
                                     Style::new()
                                 },
-                            );
-                        table
+                            )
                     } else {
                         let header = Row::new(["Index", "Title", "Type", "Url"]);
                         let rows: Vec<Row> = Vec::new();
@@ -516,13 +521,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
                                     .title("No References")
-                                    .style(
-                                        if state.focused_widget == FocusedWidget::BottomTable {
-                                            Style::new().bg(Color::DarkGray)
-                                        } else {
-                                            Style::new()
-                                        },
-                                    ),
+                                    .style(if state.focused_widget == FocusedWidget::BottomTable {
+                                        Style::new().bg(Color::DarkGray)
+                                    } else {
+                                        Style::new()
+                                    }),
                             )
                             .column_spacing(1)
                             .style(Color::White)
@@ -530,7 +533,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                     // if state.search_popup {
                     // } else {
-                    frame.render_stateful_widget(widget_top, layout[0], &mut state.list_state);
+                    frame.render_stateful_widget(
+                        widget_top,
+                        layout[0],
+                        &mut state.agol_content_widget_state,
+                    );
 
                     frame.render_widget(widget_center, layout[1]);
 
