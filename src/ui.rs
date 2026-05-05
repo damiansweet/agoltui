@@ -24,6 +24,7 @@ pub struct UiState {
     pub agol_content_widget_state: ListState,
     pub reference_table_state: TableState,
     pub broken_connections_state: TableState,
+    //TODO move errors into Widgets Enum
     pub focused_widget: FocusedWidget,
     pub running: bool,
     pub loading: bool,

@@ -8,7 +8,6 @@ use agol::models::ArcGISSearchResults;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub enum Action {
-    SyncData,
     MoveSelectionDown,
     MoveSelectionUp,
     MoveReferenceDown,
@@ -266,7 +265,6 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
             (KeyModifiers::NONE, KeyCode::Enter) if state.search_popup => {
                 Action::UserInputSubmitQuery
             }
-            (KeyModifiers::NONE, KeyCode::Enter) => Action::SyncData,
             (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
             (KeyModifiers::NONE, KeyCode::Char('f')) => Action::FilterByUsernameCli,
             //TODO if pressing s clear user input and then launch search
@@ -385,25 +383,6 @@ pub async fn handle_action(state: &mut UiState, action: Action) {
             }
             crate::ui::FocusedWidget::BrokenConnections => {}
         },
-        Action::SyncData => {
-            // state.loading = true;
-            // state.errors = None;
-            // terminal
-            //     .draw(|frame| {
-            //         ui(frame, state);
-            //     })
-            //     .expect("failed to draw loading screen");
-            // match refresh_data(client, access_token).await {
-            //     Ok(_) => {
-            //         let last_sync = read_last_sync();
-            //         state.last_synced = last_sync;
-            //         state.list_state.select(Some(0));
-            //         state.loading = false;
-            //         state.agol_content = load_all_content_from_file().unwrap_or_default();
-            //     }
-            //     Err(_) => {}
-            // }
-        }
         Action::ZeroReferences => {
             let list_content = filter_layer_no_references(state)
                 .into_iter()
