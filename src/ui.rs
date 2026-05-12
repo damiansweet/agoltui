@@ -353,7 +353,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     ];
                     let broken_connections_widget = Table::new(rows, widths)
                         .column_spacing(1)
-                        .style(Style::new().red())
+                        .style(Style::new().light_blue())
                         .highlight_symbol(">>")
                         .header(Row::new(vec!["Item ID", "Title", "Type"]))
                         .block(Block::new().title("Broken Connections"));
