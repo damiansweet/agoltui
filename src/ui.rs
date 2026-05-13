@@ -18,26 +18,30 @@ use ratatui::{
 };
 
 #[derive(Debug)]
-pub struct UiState {
+pub struct App {
     pub agol: Agol,
     pub config: Config,
+    pub state: State,
+}
+
+#[derive(Debug, Default)]
+pub struct State {
     pub agol_content_widget_state: ListState,
     pub reference_table_state: TableState,
     pub broken_connections_state: TableState,
-    //TODO move errors into Widgets Enum
+    pub username_state: TableState,
     pub focused_widget: FocusedWidget,
-    pub running: bool,
-    pub loading: bool,
-    pub references_loading: bool,
-    pub search_popup: bool,
     pub user_input: UserInput,
     pub search_type: SearchType,
     pub input_mode: InputMode,
     pub usernames: HashMap<String, u16>,
-    pub username_state: TableState,
     pub cli_input: Args,
     pub errors: Option<Errors>,
     pub queries: Vec<String>,
+    pub running: bool,
+    pub loading: bool,
+    pub references_loading: bool,
+    pub search_popup: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -61,15 +65,16 @@ pub enum FocusedWidget {
     BrokenConnections,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UserInput {
     pub input: String,
     pub character_index: usize,
     pub highlight_range: Option<(usize, usize)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum InputMode {
+    #[default]
     Normal,
     Editing,
 }
@@ -90,7 +95,7 @@ pub enum Errors {
     InvalidUserInput,
 }
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, Default)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Email of the user to search
@@ -102,7 +107,7 @@ pub struct Args {
     pub search: Option<String>,
 }
 
-pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> UiState {
+pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> App {
     let mut agol_content_widget_state = ListState::default();
     let selected = Some(0);
     agol_content_widget_state.select(selected);
@@ -140,33 +145,38 @@ pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> UiState {
     let search_type = SearchType::default();
     let queries = Vec::new();
 
-    UiState {
-        agol,
-        config,
+    let state = State {
         agol_content_widget_state,
         reference_table_state,
         broken_connections_state,
+        username_state,
         focused_widget,
+        user_input,
+        search_type,
+        input_mode,
+        usernames,
+        cli_input,
+        errors,
+        queries,
         running,
         loading,
         references_loading,
         search_popup,
-        user_input,
-        input_mode,
-        search_type,
-        cli_input,
-        usernames,
-        username_state,
-        errors,
-        queries,
+    };
+
+    App {
+        agol,
+        config,
+        state,
     }
 }
 
 fn selected_item<'a>(
-    state: &UiState,
+    state: &App,
     items: &'a [ArcGISSearchResults],
 ) -> Option<&'a ArcGISSearchResults> {
     state
+        .state
         .agol_content_widget_state
         .selected()
         .and_then(|i| items.get(i))
@@ -254,8 +264,8 @@ fn build_input_spans(
     }
 }
 
-pub fn ui(frame: &mut Frame, state: &mut UiState) {
-    match state.errors {
+pub fn ui(frame: &mut Frame, app: &mut App) {
+    match app.state.errors {
         Some(Errors::NoAccessToken) => {
             let no_access_token_error_widget = no_access_token_error_widget();
 
@@ -265,8 +275,8 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
             frame.render_widget(invalid_user_input_widget(), frame.area());
         }
         None => {
-            if state.search_popup {
-                let query = state.user_input.input.clone();
+            if app.state.search_popup {
+                let query = app.state.user_input.input.clone();
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -274,12 +284,12 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
 
                 let input_spans = build_input_spans(
                     &query,
-                    state.user_input.character_index,
-                    state.user_input.highlight_range,
-                    &state.input_mode,
+                    app.state.user_input.character_index,
+                    app.state.user_input.highlight_range,
+                    &app.state.input_mode,
                 );
 
-                let user_input = match state.search_type {
+                let user_input = match app.state.search_type {
                     SearchType::Title => Paragraph::new(input_spans.clone())
                         .block(Block::bordered().title("Search by Keyword")),
                     SearchType::Owner => Paragraph::new(input_spans.clone())
@@ -300,19 +310,20 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                 frame.render_widget(user_input, layout[0]);
                 frame.render_widget(key_binds_widget, layout[1]);
 
-                if matches!(state.input_mode, InputMode::Editing) {
+                if matches!(app.state.input_mode, InputMode::Editing) {
                     frame.set_cursor_position(Position::new(
-                        input_area.x + state.user_input.character_index as u16 + 1,
+                        input_area.x + app.state.user_input.character_index as u16 + 1,
                         input_area.y + 1,
                     ));
                 }
             } else {
-                if state.loading {
+                if app.state.loading {
                     let loading_screen_widget = loading_screen_widget();
                     frame.render_widget(loading_screen_widget, frame.area())
-                } else if !state.usernames.is_empty() {
-                    let current_query = state.queries.clone();
-                    let rows: Vec<Row> = state
+                } else if !app.state.usernames.is_empty() {
+                    let current_query = app.state.queries.clone();
+                    let rows: Vec<Row> = app
+                        .state
                         .usernames
                         .iter()
                         .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
@@ -330,11 +341,11 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     frame.render_stateful_widget(
                         username_widget,
                         frame.area(),
-                        &mut state.username_state,
+                        &mut app.state.username_state,
                     )
-                } else if state.focused_widget == FocusedWidget::BrokenConnections {
+                } else if app.state.focused_widget == FocusedWidget::BrokenConnections {
                     let broken_connections: Vec<&ArcGISSearchResults> =
-                        state.agol.references.broken_connections.iter().collect();
+                        app.agol.references.broken_connections.iter().collect();
                     let rows: Vec<Row> = broken_connections
                         .iter()
                         .map(|item| {
@@ -361,7 +372,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     frame.render_stateful_widget(
                         broken_connections_widget,
                         frame.area(),
-                        &mut state.broken_connections_state,
+                        &mut app.state.broken_connections_state,
                     )
                 } else {
                     // let area = frame.area();
@@ -374,21 +385,21 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         ])
                         .split(frame.area());
 
-                    let all_content_ids: Vec<ListItem> = state
+                    let all_content_ids: Vec<ListItem> = app
                         .agol
                         .agol_content
                         .iter()
                         .map(|item| ListItem::new(item.id.clone()))
                         .collect();
 
-                    let num_list_items = state.agol.agol_content.len();
+                    let num_list_items = app.agol.agol_content.len();
 
                     let widget_top = List::new(all_content_ids)
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
                                 .title(format!("All AGOL Content List\t {num_list_items}"))
-                                .style(if state.focused_widget == FocusedWidget::TopList {
+                                .style(if app.state.focused_widget == FocusedWidget::TopList {
                                     Style::new().bg(Color::DarkGray)
                                 } else {
                                     Style::new()
@@ -399,32 +410,32 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         .highlight_spacing(HighlightSpacing::Always)
                         .repeat_highlight_symbol(true)
                         .direction(ListDirection::TopToBottom)
-                        .highlight_style(if state.focused_widget == FocusedWidget::TopList {
+                        .highlight_style(if app.state.focused_widget == FocusedWidget::TopList {
                             Style::new().italic()
                         } else {
                             Style::new()
                         });
 
                     // let content_count = all_agol_content.len();
-                    let selected_title = selected_item(state, &state.agol.agol_content)
+                    let selected_title = selected_item(app, &app.agol.agol_content)
                         .map(|item| item.title.as_str())
                         .unwrap_or_default();
 
-                    let selected_item_type = selected_item(state, &state.agol.agol_content)
+                    let selected_item_type = selected_item(app, &app.agol.agol_content)
                         .map(|item| item.item_type.as_str())
                         .unwrap_or_default();
 
-                    let selected_owner = selected_item(state, &state.agol.agol_content)
+                    let selected_owner = selected_item(app, &app.agol.agol_content)
                         .map(|item| item.owner.as_str())
                         .unwrap_or_default();
 
-                    let queries = &state.queries.join(" && ");
+                    let queries = &app.state.queries.join(" && ");
 
                     let layer_info_text = format!(
                         "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<f> filter by username | <0> zero references\nCurrent Query: {queries}"
                     );
 
-                    let widget_center = if state.references_loading {
+                    let widget_center = if app.state.references_loading {
                         Paragraph::new("Loading references...")
                             .block(Block::bordered().title("References"))
                             .style(Style::new().yellow())
@@ -441,10 +452,10 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     };
 
                     let widget_bottom = if let Some(selected_id) =
-                        selected_item(state, &state.agol.agol_content).map(|item| item.id.as_str())
+                        selected_item(app, &app.agol.agol_content).map(|item| item.id.as_str())
                     {
-                        //TODO style selected table item and add to UiState
-                        let references = utils::get_layer_references(selected_id, state);
+                        //TODO style selected table item and add to Uiapp.state
+                        let references = utils::get_layer_references(selected_id, app);
                         let mut sorted_references: Vec<ArcGISSearchResults> = Vec::new();
                         for r in &references {
                             sorted_references.push(r.clone());
@@ -459,17 +470,17 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                         for (i, r) in sorted_references.into_iter().enumerate() {
                             let url = format!(
                                 "{}/home/item.html?id={}",
-                                &state.config.org_info.full_url, &r.id
+                                &app.config.org_info.full_url, &r.id
                             );
                             rows.push(Row::new([i.to_string(), r.title, r.item_type, url]));
                         }
                         //TODO conditionally render no references if !sorted_references.is_empty()
 
-                        let selected = state.reference_table_state.selected();
+                        let selected = app.state.reference_table_state.selected();
                         if selected.is_none()
                             || selected.unwrap_or(0) >= rows.len() && !rows.is_empty()
                         {
-                            state.reference_table_state.select(Some(0));
+                            app.state.reference_table_state.select(Some(0));
                         }
 
                         let widths = [
@@ -485,23 +496,25 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
                                     .title("References")
-                                    .style(if state.focused_widget == FocusedWidget::BottomTable {
-                                        Style::new().bg(Color::DarkGray)
-                                    } else {
-                                        Style::new()
-                                    }),
+                                    .style(
+                                        if app.state.focused_widget == FocusedWidget::BottomTable {
+                                            Style::new().bg(Color::DarkGray)
+                                        } else {
+                                            Style::new()
+                                        },
+                                    ),
                             )
                             .style(Color::White)
                             .highlight_symbol(">>")
                             .highlight_spacing(
-                                if state.focused_widget == FocusedWidget::BottomTable {
+                                if app.state.focused_widget == FocusedWidget::BottomTable {
                                     HighlightSpacing::Always
                                 } else {
                                     HighlightSpacing::Never
                                 },
                             )
                             .row_highlight_style(
-                                if state.focused_widget == FocusedWidget::BottomTable {
+                                if app.state.focused_widget == FocusedWidget::BottomTable {
                                     Style::new().italic()
                                 } else {
                                     Style::new()
@@ -522,22 +535,24 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                                 Block::bordered()
                                     .title_alignment(Alignment::Center)
                                     .title("No References")
-                                    .style(if state.focused_widget == FocusedWidget::BottomTable {
-                                        Style::new().bg(Color::DarkGray)
-                                    } else {
-                                        Style::new()
-                                    }),
+                                    .style(
+                                        if app.state.focused_widget == FocusedWidget::BottomTable {
+                                            Style::new().bg(Color::DarkGray)
+                                        } else {
+                                            Style::new()
+                                        },
+                                    ),
                             )
                             .column_spacing(1)
                             .style(Color::White)
                     };
 
-                    // if state.search_popup {
+                    // if app.state.search_popup {
                     // } else {
                     frame.render_stateful_widget(
                         widget_top,
                         layout[0],
-                        &mut state.agol_content_widget_state,
+                        &mut app.state.agol_content_widget_state,
                     );
 
                     frame.render_widget(widget_center, layout[1]);
@@ -545,7 +560,7 @@ pub fn ui(frame: &mut Frame, state: &mut UiState) {
                     frame.render_stateful_widget(
                         widget_bottom,
                         layout[2],
-                        &mut state.reference_table_state,
+                        &mut app.state.reference_table_state,
                     );
                     // }
                 }

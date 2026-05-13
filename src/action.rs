@@ -1,4 +1,4 @@
-use crate::ui::{InputMode, SearchType, UiState};
+use crate::ui::{App, InputMode, SearchType, State};
 use crate::utils::{
     clear_highlight, filter_layer_no_references, format_email, get_layer_references,
     helix_next_word, helix_previous_word,
@@ -44,59 +44,60 @@ fn move_selection(current: Option<usize>, len: usize, delta: isize) -> Option<us
     Some(((cur + delta).rem_euclid(len_i)) as usize)
 }
 
-fn move_search_cursor_left(state: &mut UiState) {
-    let cursor_moved_left = state.user_input.character_index.saturating_sub(1);
-    state.user_input.character_index = clamp_cursor(state, cursor_moved_left);
+fn move_search_cursor_left(app: &mut App) {
+    let cursor_moved_left = app.state.user_input.character_index.saturating_sub(1);
+    app.state.user_input.character_index = clamp_cursor(app, cursor_moved_left);
 }
 
-fn move_search_cursor_right(state: &mut UiState) {
-    let cursor_moved_right = state.user_input.character_index.saturating_add(1);
-    state.user_input.character_index = clamp_cursor(state, cursor_moved_right);
+fn move_search_cursor_right(app: &mut App) {
+    let cursor_moved_right = app.state.user_input.character_index.saturating_add(1);
+    app.state.user_input.character_index = clamp_cursor(app, cursor_moved_right);
 }
 
-fn enter_char(state: &mut UiState, char: char) {
-    let index = byte_index(state);
-    state.user_input.input.insert(index, char);
-    move_search_cursor_right(state);
+fn enter_char(app: &mut App, char: char) {
+    let index = byte_index(app);
+    app.state.user_input.input.insert(index, char);
+    move_search_cursor_right(app);
 }
 
-fn byte_index(state: &UiState) -> usize {
-    state
+fn byte_index(app: &App) -> usize {
+    app.state
         .user_input
         .input
         .char_indices()
         .map(|(i, _)| i)
-        .nth(state.user_input.character_index)
-        .unwrap_or(state.user_input.input.len())
+        .nth(app.state.user_input.character_index)
+        .unwrap_or(app.state.user_input.input.len())
 }
 
-fn delete_char(state: &mut UiState) {
-    let is_not_cursor_leftmost = state.user_input.character_index != 0;
+fn delete_char(app: &mut App) {
+    let is_not_cursor_leftmost = app.state.user_input.character_index != 0;
     if is_not_cursor_leftmost {
-        let current_index = state.user_input.character_index;
+        let current_index = app.state.user_input.character_index;
         let from_left_to_current_index = current_index - 1;
 
-        let before_char_to_delete = state
+        let before_char_to_delete = app
+            .state
             .user_input
             .input
             .chars()
             .take(from_left_to_current_index);
 
-        let after_char_to_delete = state.user_input.input.chars().skip(current_index);
+        let after_char_to_delete = app.state.user_input.input.chars().skip(current_index);
 
-        state.user_input.input = before_char_to_delete.chain(after_char_to_delete).collect();
-        move_search_cursor_left(state);
+        app.state.user_input.input = before_char_to_delete.chain(after_char_to_delete).collect();
+        move_search_cursor_left(app);
     }
 }
 
-fn clamp_cursor(state: &UiState, new_cursor_pos: usize) -> usize {
-    new_cursor_pos.clamp(0, state.user_input.input.chars().count())
+fn clamp_cursor(app: &App, new_cursor_pos: usize) -> usize {
+    new_cursor_pos.clamp(0, app.state.user_input.input.chars().count())
 }
 
-fn filter_by_username_cli(state: &mut UiState) {
-    if let Some(email) = &state.cli_input.email {
+fn filter_by_username_cli(app: &mut App) {
+    if let Some(email) = &app.state.cli_input.email {
         let email = format_email(email);
-        let filtered_list: Vec<ArcGISSearchResults> = state
+        let filtered_list: Vec<ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
@@ -104,14 +105,14 @@ fn filter_by_username_cli(state: &mut UiState) {
             .cloned()
             .collect();
 
-        state.agol.agol_content = filtered_list;
-        if !state.queries.contains(&format!("Username == {email}")) {
-            state.queries.push(format!("Username == {email}"))
+        app.agol.agol_content = filtered_list;
+        if !app.state.queries.contains(&format!("Username == {email}")) {
+            app.state.queries.push(format!("Username == {email}"))
         };
     }
 }
 
-fn search_by_username(state: &mut UiState) {
+fn search_by_username(app: &mut App) {
     // let username = {
     //     format!(
     //         "{}_{}",
@@ -119,8 +120,8 @@ fn search_by_username(state: &mut UiState) {
     //         state.org_info.url_key
     //     )
     // };
-    let username = state.user_input.input.clone();
-    let filtered_list: Vec<ArcGISSearchResults> = state
+    let username = app.state.user_input.input.clone();
+    let filtered_list: Vec<ArcGISSearchResults> = app
         .agol
         .agol_content
         .iter()
@@ -128,23 +129,24 @@ fn search_by_username(state: &mut UiState) {
         .cloned()
         .collect();
 
-    state.agol.agol_content = filtered_list;
-    state.search_popup = false;
-    if !state
+    app.agol.agol_content = filtered_list;
+    app.state.search_popup = false;
+    if !app
+        .state
         .queries
         .contains(&format!("Owner/Username == '{username}'"))
     {
-        state
+        app.state
             .queries
             .push(format!("Owner/Username == '{username}'"))
     };
 }
 
-fn search_by_keyword(state: &mut UiState) {
-    let query = &state.user_input.input.to_lowercase();
+fn search_by_keyword(app: &mut App) {
+    let query = &app.state.user_input.input.to_lowercase();
 
     if query.len() >= 3 && query.len() <= 50 {
-        let search_results: Vec<ArcGISSearchResults> = state
+        let search_results: Vec<ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
@@ -152,26 +154,30 @@ fn search_by_keyword(state: &mut UiState) {
             .cloned()
             .collect();
 
-        state.search_popup = false;
-        if !state.queries.contains(&format!("title ILIKE '%{query}%'")) {
-            state.queries.push(format!("Title ILIKE '%{query}%'"))
+        app.state.search_popup = false;
+        if !app
+            .state
+            .queries
+            .contains(&format!("title ILIKE '%{query}%'"))
+        {
+            app.state.queries.push(format!("Title ILIKE '%{query}%'"))
         };
-        state.agol.agol_content = search_results;
-        if state.agol.agol_content.is_empty() {
-            state.agol_content_widget_state.select(None);
+        app.agol.agol_content = search_results;
+        if app.agol.agol_content.is_empty() {
+            app.state.agol_content_widget_state.select(None);
         } else {
-            state.agol_content_widget_state.select(Some(0));
+            app.state.agol_content_widget_state.select(Some(0));
         }
     } else {
-        state.errors = Some(crate::ui::Errors::InvalidUserInput);
+        app.state.errors = Some(crate::ui::Errors::InvalidUserInput);
     }
 }
 
-fn search_by_item_id(state: &mut UiState) {
-    let query = &state.user_input.input;
+fn search_by_item_id(app: &mut App) {
+    let query = &app.state.user_input.input;
 
     if query.len() >= 3 && query.len() <= 50 {
-        let search_results: Vec<ArcGISSearchResults> = state
+        let search_results: Vec<ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
@@ -179,44 +185,44 @@ fn search_by_item_id(state: &mut UiState) {
             .cloned()
             .collect();
 
-        state.search_popup = false;
-        if !state.queries.contains(&format!("id == '{query}'")) {
-            state.queries.push(format!("id == '{query}'"))
+        app.state.search_popup = false;
+        if !app.state.queries.contains(&format!("id == '{query}'")) {
+            app.state.queries.push(format!("id == '{query}'"))
         };
-        state.agol.agol_content = search_results;
-        if state.agol.agol_content.is_empty() {
-            state.agol_content_widget_state.select(None);
+        app.agol.agol_content = search_results;
+        if app.agol.agol_content.is_empty() {
+            app.state.agol_content_widget_state.select(None);
         } else {
-            state.agol_content_widget_state.select(Some(0));
+            app.state.agol_content_widget_state.select(Some(0));
         }
     } else {
-        state.errors = Some(crate::ui::Errors::InvalidUserInput);
+        app.state.errors = Some(crate::ui::Errors::InvalidUserInput);
     }
 }
 
-fn flip_input_mode(state: &mut UiState) {
-    match state.input_mode {
-        InputMode::Normal => state.input_mode = InputMode::Editing,
-        InputMode::Editing => state.input_mode = InputMode::Normal,
+fn flip_input_mode(app: &mut App) {
+    match app.state.input_mode {
+        InputMode::Normal => app.state.input_mode = InputMode::Editing,
+        InputMode::Editing => app.state.input_mode = InputMode::Normal,
     };
 }
 
-fn set_search_type(state: &mut UiState, search_type: SearchType) {
+fn set_search_type(app: &mut App, search_type: SearchType) {
     match search_type {
-        SearchType::Title => state.search_type = SearchType::Title,
-        SearchType::Owner => state.search_type = SearchType::Owner,
-        SearchType::Id => state.search_type = SearchType::Id,
+        SearchType::Title => app.state.search_type = SearchType::Title,
+        SearchType::Owner => app.state.search_type = SearchType::Owner,
+        SearchType::Id => app.state.search_type = SearchType::Id,
     }
 }
 
-fn launch_search(state: &mut UiState) {
-    state.search_popup = true;
-    state.input_mode = InputMode::Editing;
+fn launch_search(app: &mut App) {
+    app.state.search_popup = true;
+    app.state.input_mode = InputMode::Editing;
 }
 
-fn all_usernames(state: &mut UiState) {
-    state.agol.agol_content.iter().for_each(|agol_item| {
-        state
+fn all_usernames(app: &mut App) {
+    app.agol.agol_content.iter().for_each(|agol_item| {
+        app.state
             .usernames
             .entry(agol_item.owner.clone())
             .and_modify(|count| *count += 1)
@@ -224,15 +230,15 @@ fn all_usernames(state: &mut UiState) {
     });
 }
 
-async fn reset_filters(state: &mut UiState) {
-    state.agol.agol_content = state.agol.cached_agol_content.clone();
-    state.agol_content_widget_state.select(Some(0));
-    state.user_input.character_index = 0;
-    state.search_popup = false;
-    state.usernames.clear();
-    state.user_input.input.clear();
-    state.queries.clear();
-    state.errors = None;
+async fn reset_filters(app: &mut App) {
+    app.agol.agol_content = app.agol.cached_agol_content.clone();
+    app.state.agol_content_widget_state.select(Some(0));
+    app.state.user_input.character_index = 0;
+    app.state.search_popup = false;
+    app.state.usernames.clear();
+    app.state.user_input.input.clear();
+    app.state.queries.clear();
+    app.state.errors = None;
 
     // dbg!(&state);
 }
@@ -241,7 +247,7 @@ async fn reset_filters(state: &mut UiState) {
 //
 //
 //
-pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
+pub fn handle_key(state: &State, key: KeyEvent) -> Action {
     match state.input_mode {
         InputMode::Normal => match (key.modifiers, key.code) {
             (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
@@ -302,173 +308,178 @@ pub fn handle_key(state: &UiState, key: KeyEvent) -> Action {
     }
 }
 
-pub async fn handle_action(state: &mut UiState, action: Action) {
+pub async fn handle_action(app: &mut App, action: Action) {
     match action {
         Action::MoveSelectionDown => {
             let next = move_selection(
-                state.agol_content_widget_state.selected(),
-                state.agol.agol_content.len(),
+                app.state.agol_content_widget_state.selected(),
+                app.agol.agol_content.len(),
                 1,
             );
-            state.agol_content_widget_state.select(next);
+            app.state.agol_content_widget_state.select(next);
         }
         Action::MoveSelectionUp => {
             let previous = move_selection(
-                state.agol_content_widget_state.selected(),
-                state.agol.agol_content.len(),
+                app.state.agol_content_widget_state.selected(),
+                app.agol.agol_content.len(),
                 -1,
             );
-            state.agol_content_widget_state.select(previous);
+            app.state.agol_content_widget_state.select(previous);
         }
         Action::MoveReferenceDown => {
-            if let Some(selected_id) = state
+            if let Some(selected_id) = app
+                .state
                 .agol_content_widget_state
                 .selected()
-                .and_then(|i| state.agol.agol_content.get(i))
+                .and_then(|i| app.agol.agol_content.get(i))
                 .map(|item| item.id.as_str())
             {
-                let references = get_layer_references(selected_id, state);
+                let references = get_layer_references(selected_id, app);
                 let len = references.len();
                 if len > 0 {
-                    let current = state.reference_table_state.selected().unwrap_or(0);
+                    let current = app.state.reference_table_state.selected().unwrap_or(0);
                     let next = ((current as isize + 1).rem_euclid(len as isize)) as usize;
-                    state.reference_table_state.select(Some(next));
+                    app.state.reference_table_state.select(Some(next));
                 }
             }
         }
         Action::MoveReferenceUp => {
-            if let Some(selected_id) = state
+            if let Some(selected_id) = app
+                .state
                 .agol_content_widget_state
                 .selected()
-                .and_then(|i| state.agol.agol_content.get(i))
+                .and_then(|i| app.agol.agol_content.get(i))
                 .map(|item| item.id.as_str())
             {
-                let references = get_layer_references(selected_id, state);
+                let references = get_layer_references(selected_id, app);
                 let len = references.len();
                 if len > 0 {
-                    let current = state.reference_table_state.selected().unwrap_or(0);
+                    let current = app.state.reference_table_state.selected().unwrap_or(0);
                     let prev = ((current as isize - 1).rem_euclid(len as isize)) as usize;
-                    state.reference_table_state.select(Some(prev));
+                    app.state.reference_table_state.select(Some(prev));
                 }
             }
         }
         Action::MoveBrokenConnectionDown => {
-            let len = state.agol.references.broken_connections.len();
+            let len = app.agol.references.broken_connections.len();
             if len > 0 {
-                let current = state.broken_connections_state.selected().unwrap_or(0);
+                let current = app.state.broken_connections_state.selected().unwrap_or(0);
                 let next = ((current as isize + 1).rem_euclid(len as isize)) as usize;
-                state.broken_connections_state.select(Some(next));
+                app.state.broken_connections_state.select(Some(next));
             }
         }
         Action::MoveBrokenConnectionUp => {
-            let len = state.agol.references.broken_connections.len();
+            let len = app.agol.references.broken_connections.len();
             if len > 0 {
-                let current = state.broken_connections_state.selected().unwrap_or(0);
+                let current = app.state.broken_connections_state.selected().unwrap_or(0);
                 let prev = ((current as isize - 1).rem_euclid(len as isize)) as usize;
-                state.broken_connections_state.select(Some(prev));
+                app.state.broken_connections_state.select(Some(prev));
             }
         }
         Action::FocusBrokenConnections => {
-            state.focused_widget = crate::ui::FocusedWidget::BrokenConnections;
+            app.state.focused_widget = crate::ui::FocusedWidget::BrokenConnections;
         }
         Action::GoBack => {
-            state.focused_widget = crate::ui::FocusedWidget::TopList;
+            app.state.focused_widget = crate::ui::FocusedWidget::TopList;
         }
-        Action::SwitchFocus => match state.focused_widget {
+        Action::SwitchFocus => match app.state.focused_widget {
             crate::ui::FocusedWidget::TopList => {
-                state.focused_widget = crate::ui::FocusedWidget::BottomTable;
+                app.state.focused_widget = crate::ui::FocusedWidget::BottomTable;
             }
             crate::ui::FocusedWidget::BottomTable => {
-                state.focused_widget = crate::ui::FocusedWidget::TopList;
+                app.state.focused_widget = crate::ui::FocusedWidget::TopList;
             }
             crate::ui::FocusedWidget::BrokenConnections => {}
         },
         Action::ZeroReferences => {
-            let list_content = filter_layer_no_references(state)
+            let list_content = filter_layer_no_references(app)
                 .into_iter()
                 .cloned()
                 .collect();
-            state.agol.agol_content = list_content;
-            if state.agol.agol_content.is_empty() {
-                state.agol_content_widget_state.select(None);
+            app.agol.agol_content = list_content;
+            if app.agol.agol_content.is_empty() {
+                app.state.agol_content_widget_state.select(None);
             } else {
-                state.agol_content_widget_state.select(Some(0))
+                app.state.agol_content_widget_state.select(Some(0))
             }
-            if !state.queries.contains(&String::from("Zero References")) {
-                state.queries.push(String::from("Zero References"))
+            if !app.state.queries.contains(&String::from("Zero References")) {
+                app.state.queries.push(String::from("Zero References"))
             };
         }
         // Action::FilterByUsername => {
         //     filter_by_username(
-        //         state,
+        //         app,
         //         String::from("Damian.Sweet@cityoflonetree.com_CityofLoneTree"),
         //     );
         // }
         Action::FilterByUsernameCli => {
-            filter_by_username_cli(state);
+            filter_by_username_cli(app);
         }
         Action::SearchByKeyword => {
-            launch_search(state);
-            // search_by_keyword(state);
+            launch_search(app);
+            // search_by_keyword(app);
         }
         Action::UserInputEnterChar(char) => {
-            enter_char(state, char);
-            clear_highlight(state);
+            enter_char(app, char);
+            clear_highlight(app);
         }
         Action::UserInputDeleteChar => {
-            delete_char(state);
-            clear_highlight(state);
+            delete_char(app);
+            clear_highlight(app);
         }
         Action::UserInputFlipInputMode => {
-            flip_input_mode(state);
-            clear_highlight(state);
+            flip_input_mode(app);
+            clear_highlight(app);
         }
         Action::UserInputSearchTerm
-            if state.search_type == SearchType::Owner || state.search_type == SearchType::Id =>
+            if app.state.search_type == SearchType::Owner
+                || app.state.search_type == SearchType::Id =>
         {
-            set_search_type(state, SearchType::Title);
+            set_search_type(app, SearchType::Title);
         }
         Action::UserInputSearchUsername
-            if state.search_type == SearchType::Title || state.search_type == SearchType::Id =>
+            if app.state.search_type == SearchType::Title
+                || app.state.search_type == SearchType::Id =>
         {
-            set_search_type(state, SearchType::Owner);
+            set_search_type(app, SearchType::Owner);
         }
         Action::UserInputSearchId
-            if state.search_type == SearchType::Title || state.search_type == SearchType::Owner =>
+            if app.state.search_type == SearchType::Title
+                || app.state.search_type == SearchType::Owner =>
         {
-            set_search_type(state, SearchType::Id);
+            set_search_type(app, SearchType::Id);
         }
-        Action::UserInputSubmitQuery if state.search_type == SearchType::Title => {
-            search_by_keyword(state);
-            flip_input_mode(state);
-            clear_highlight(state);
+        Action::UserInputSubmitQuery if app.state.search_type == SearchType::Title => {
+            search_by_keyword(app);
+            flip_input_mode(app);
+            clear_highlight(app);
         }
-        Action::UserInputSubmitQuery if state.search_type == SearchType::Owner => {
-            search_by_username(state);
-            flip_input_mode(state);
-            clear_highlight(state);
+        Action::UserInputSubmitQuery if app.state.search_type == SearchType::Owner => {
+            search_by_username(app);
+            flip_input_mode(app);
+            clear_highlight(app);
         }
-        Action::UserInputSubmitQuery if state.search_type == SearchType::Id => {
-            search_by_item_id(state);
-            flip_input_mode(state);
-            clear_highlight(state);
+        Action::UserInputSubmitQuery if app.state.search_type == SearchType::Id => {
+            search_by_item_id(app);
+            flip_input_mode(app);
+            clear_highlight(app);
         }
 
-        Action::ListUsers => all_usernames(state),
+        Action::ListUsers => all_usernames(app),
         Action::Reset => {
-            reset_filters(state).await;
-            if state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
-                state.focused_widget = crate::ui::FocusedWidget::TopList;
+            reset_filters(app).await;
+            if app.state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
+                app.state.focused_widget = crate::ui::FocusedWidget::TopList;
             }
         }
         Action::Quit => {
-            state.running = false;
+            app.state.running = false;
         }
         Action::HelixPreviousWord => {
-            helix_previous_word(state);
+            helix_previous_word(app);
         }
         Action::HelixNextWord => {
-            helix_next_word(state);
+            helix_next_word(app);
         }
         Action::NoOp => {}
         _ => {}

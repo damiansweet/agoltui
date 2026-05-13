@@ -1,4 +1,4 @@
-use crate::ui::UiState;
+use crate::ui::App;
 use agol::models::ArcGISSearchResults;
 use std::collections::HashSet;
 
@@ -15,7 +15,7 @@ pub fn format_email(email: &str) -> &str {
 //TODO display feature layer info that has the most references
 
 //TODO test how many results come from this
-pub fn filter_layer_no_references(state: &mut UiState) -> Vec<&ArcGISSearchResults> {
+pub fn filter_layer_no_references(state: &mut App) -> Vec<&ArcGISSearchResults> {
     let mut no_reference_ids = Vec::new();
     for (k, v) in &state.agol.references.lookup {
         if v.is_empty() {
@@ -34,21 +34,21 @@ pub fn filter_layer_no_references(state: &mut UiState) -> Vec<&ArcGISSearchResul
 }
 
 //TODO call this from action not UI
-pub fn get_layer_references(id: &str, ui_state: &UiState) -> HashSet<ArcGISSearchResults> {
-    if let Some(references) = ui_state.agol.references.lookup.get(id) {
+pub fn get_layer_references(id: &str, app: &App) -> HashSet<ArcGISSearchResults> {
+    if let Some(references) = app.agol.references.lookup.get(id) {
         references.clone()
     } else {
         HashSet::new()
     }
 }
 
-pub fn clear_highlight(state: &mut UiState) {
-    state.user_input.highlight_range = None;
+pub fn clear_highlight(app: &mut App) {
+    app.state.user_input.highlight_range = None;
 }
 
-pub fn helix_previous_word(state: &mut UiState) {
-    let old_index = state.user_input.character_index;
-    let text_before_cursor = &state.user_input.input[..old_index];
+pub fn helix_previous_word(app: &mut App) {
+    let old_index = app.state.user_input.character_index;
+    let text_before_cursor = &app.state.user_input.input[..old_index];
     let trimmed = text_before_cursor.trim_end();
 
     let new_index = if trimmed.is_empty() {
@@ -60,20 +60,20 @@ pub fn helix_previous_word(state: &mut UiState) {
         }
     };
 
-    state.user_input.character_index = new_index;
+    app.state.user_input.character_index = new_index;
 
     if new_index != old_index {
-        state.user_input.highlight_range = Some((new_index, old_index));
+        app.state.user_input.highlight_range = Some((new_index, old_index));
     } else {
-        state.user_input.highlight_range = None;
+        app.state.user_input.highlight_range = None;
     }
 }
 
-pub fn helix_next_word(state: &mut UiState) {
-    let old_index = state.user_input.character_index;
-    let char_count = state.user_input.input.chars().count();
+pub fn helix_next_word(app: &mut App) {
+    let old_index = app.state.user_input.character_index;
+    let char_count = app.state.user_input.input.chars().count();
 
-    let text_after_cursor: String = state.user_input.input.chars().skip(old_index).collect();
+    let text_after_cursor: String = app.state.user_input.input.chars().skip(old_index).collect();
 
     let first_space = text_after_cursor
         .char_indices()
@@ -92,12 +92,12 @@ pub fn helix_next_word(state: &mut UiState) {
         char_count
     };
 
-    state.user_input.character_index = new_index;
+    app.state.user_input.character_index = new_index;
 
     if new_index != old_index {
-        state.user_input.highlight_range = Some((old_index, new_index));
+        app.state.user_input.highlight_range = Some((old_index, new_index));
     } else {
-        state.user_input.highlight_range = None;
+        app.state.user_input.highlight_range = None;
     }
 }
 

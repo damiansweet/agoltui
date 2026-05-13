@@ -64,11 +64,11 @@ async fn main() -> color_eyre::Result<()> {
         }
     });
 
-    let mut ui_state = ui::init_state(args, agol.clone(), config.clone());
-    ui_state.references_loading = true;
+    let mut app = ui::init_state(args, agol.clone(), config.clone());
+    app.state.references_loading = true;
 
-    while ui_state.running {
-        terminal.draw(|frame| ui::ui(frame, &mut ui_state))?;
+    while app.state.running {
+        terminal.draw(|frame| ui::ui(frame, &mut app))?;
 
         if let Ok(mut refs) = rx.try_recv() {
             let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
@@ -82,16 +82,16 @@ async fn main() -> color_eyre::Result<()> {
             }
             refs.broken_connections = broken_connections;
 
-            ui_state.agol.references = refs;
-            ui_state.references_loading = false;
+            app.agol.references = refs;
+            app.state.references_loading = false;
         }
 
         if !event::poll(std::time::Duration::from_millis(16))? {
             continue;
         }
         if let Event::Key(key) = event::read()? {
-            let action = action::handle_key(&ui_state, key);
-            action::handle_action(&mut ui_state, action).await;
+            let action = action::handle_key(&app.state, key);
+            action::handle_action(&mut app, action).await;
         }
     }
     //TODO match on specific error and render match error widget
