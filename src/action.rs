@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 use crate::ui::{App, InputMode, SearchType, State};
 use crate::utils::{
     clear_highlight, filter_layer_no_references, format_email, get_layer_references,

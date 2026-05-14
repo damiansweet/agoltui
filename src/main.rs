@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 use crate::errors::AppError;
 
 use agol::models::{ArcGISReferences, ArcGISSearchResults};

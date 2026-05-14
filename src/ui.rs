@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 use std::collections::HashMap;
 use std::sync::Arc;
 

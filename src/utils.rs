@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 use crate::ui::App;
 use agol::models::ArcGISSearchResults;
 use std::collections::HashSet;
