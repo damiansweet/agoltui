@@ -1,4 +1,3 @@
-#![allow(clippy::pedantic)]
 use crate::errors::AppError;
 
 use agol::models::{ArcGISReferences, ArcGISSearchResults};
@@ -33,6 +32,9 @@ async fn main() -> color_eyre::Result<()> {
         org_info: agol::fetch_org_info(&client, &access_token).await?,
         access_token: access_token.clone(),
     };
+
+    //TODO fetch list of org users in background and send to Agol when complete
+    // _ = agol::fetch_org_users(&client, &access_token).await?;
 
     let total_agol_count =
         agol::fetch_agol_content_total_count(&client, &access_token, &config.org_info.org_id)

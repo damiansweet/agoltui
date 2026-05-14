@@ -1,4 +1,3 @@
-#![allow(clippy::pedantic)]
 use crate::AppError;
 use agol::{AgolItemType, ArcGISAccessToken, ArcGISReferences, ArcGISSearchResults};
 use futures::stream::{self, StreamExt};
