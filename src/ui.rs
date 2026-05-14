@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use agol::ArcGISAccessToken;
-use agol::models::{ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults};
+use agol::models::{ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults, Users};
 use clap::Parser;
 
 use crate::utils;
@@ -41,6 +41,7 @@ pub struct State {
     pub running: bool,
     pub loading: bool,
     pub references_loading: bool,
+    pub users_loading: bool,
     pub search_popup: bool,
 }
 
@@ -55,6 +56,7 @@ pub struct Agol {
     pub agol_content: Vec<ArcGISSearchResults>,
     pub cached_agol_content: Vec<ArcGISSearchResults>,
     pub references: ArcGISReferences,
+    pub users: Vec<Users>,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -116,7 +118,8 @@ pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> App {
     reference_table_state.select(Some(0));
     let focused_widget = FocusedWidget::default();
     let running = true;
-    let references_loading = false;
+    let references_loading = true;
+    let users_loading = true;
     let loading = false;
     let search_popup = false;
     let input_mode = InputMode::Normal;
@@ -161,6 +164,7 @@ pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> App {
         running,
         loading,
         references_loading,
+        users_loading,
         search_popup,
     };
 
@@ -317,6 +321,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     ));
                 }
             } else {
+                //TODO create users loading widget
                 if app.state.loading {
                     let loading_screen_widget = loading_screen_widget();
                     frame.render_widget(loading_screen_widget, frame.area())

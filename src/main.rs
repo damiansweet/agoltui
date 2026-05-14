@@ -1,6 +1,6 @@
 use crate::errors::AppError;
 
-use agol::models::{ArcGISReferences, ArcGISSearchResults};
+use agol::models::{ArcGISReferences, ArcGISSearchResults, Users};
 use clap::Parser;
 use crossterm::event::{self, Event};
 use std::sync::Arc;
@@ -51,29 +51,42 @@ async fn main() -> color_eyre::Result<()> {
         agol_content: agol_items.clone(),
         cached_agol_content: agol_items,
         references: ArcGISReferences::default(),
+        users: vec![Users::default()],
     };
 
     let valid_agol_item_ids = agol::extract_item_ids(&agol.agol_content);
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
+    let (users_tx, mut users_rx) = tokio::sync::mpsc::channel::<Vec<Users>>(1);
+    let (references_tx, mut references_rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
 
     let client_bg = Arc::clone(&client);
     let token_bg = Arc::clone(&config.access_token);
     let items_bg = agol.agol_content.clone();
 
     tokio::spawn(async move {
-        if let Ok(refs) = agol_data::process_references_only(client_bg, token_bg, items_bg).await {
-            let _ = tx.send(refs).await;
+        if let Ok(refs) =
+            agol_data::process_references_only(client_bg.clone(), token_bg, items_bg).await
+        {
+            let _ = references_tx.send(refs).await;
+        }
+    });
+
+    let token_users = Arc::clone(&config.access_token);
+    let org_id_users = config.org_info.org_id.clone();
+
+    tokio::spawn(async move {
+        if let Ok(refs) = agol::fetch_org_users(&client.clone(), &token_users, &org_id_users).await
+        {
+            let _ = users_tx.send(refs).await;
         }
     });
 
     let mut app = ui::init_state(args, agol.clone(), config.clone());
-    app.state.references_loading = true;
 
     while app.state.running {
         terminal.draw(|frame| ui::ui(frame, &mut app))?;
 
-        if let Ok(mut refs) = rx.try_recv() {
+        if let Ok(mut refs) = references_rx.try_recv() {
             let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
 
             for (k, v) in &refs.lookup {
@@ -87,6 +100,11 @@ async fn main() -> color_eyre::Result<()> {
 
             app.agol.references = refs;
             app.state.references_loading = false;
+        }
+
+        if let Ok(users) = users_rx.try_recv() {
+            app.agol.users = users;
+            app.state.users_loading = false;
         }
 
         if !event::poll(std::time::Duration::from_millis(16))? {
