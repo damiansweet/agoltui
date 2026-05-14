@@ -1,7 +1,7 @@
 use crate::ui::{App, InputMode, SearchType, State};
 use crate::utils::{
-    clear_highlight, filter_layer_no_references, format_email, get_layer_references,
-    helix_next_word, helix_previous_word,
+    clear_highlight, extract_usernames, filter_layer_no_references, format_email,
+    get_layer_references, helix_next_word, helix_previous_word,
 };
 
 use agol::models::ArcGISSearchResults;
@@ -465,7 +465,14 @@ pub async fn handle_action(app: &mut App, action: Action) {
             clear_highlight(app);
         }
 
-        Action::ListUsers => all_usernames(app),
+        Action::ListUsers => {
+            all_usernames(app);
+            // TODO create action/widget for valid usernames to display below search
+            // panic!(
+            //     "total users: {:?}",
+            //     extract_usernames(&app.agol.users).len()
+            // );
+        }
         Action::Reset => {
             reset_filters(app).await;
             if app.state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {

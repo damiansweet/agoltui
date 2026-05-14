@@ -1,5 +1,5 @@
 use crate::ui::App;
-use agol::models::ArcGISSearchResults;
+use agol::models::{ArcGISSearchResults, Users};
 use std::collections::HashSet;
 
 pub fn format_email(email: &str) -> &str {
@@ -99,6 +99,10 @@ pub fn helix_next_word(app: &mut App) {
     } else {
         app.state.user_input.highlight_range = None;
     }
+}
+
+pub fn extract_usernames(users: &[Users]) -> Vec<&str> {
+    users.iter().map(|u| u.username.as_str()).collect()
 }
 
 #[cfg(test)]
