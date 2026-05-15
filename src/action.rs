@@ -95,31 +95,14 @@ fn clamp_cursor(app: &App, new_cursor_pos: usize) -> usize {
     new_cursor_pos.clamp(0, app.state.user_input.input.chars().count())
 }
 
-fn filter_by_username_cli(app: &mut App) {
-    if let Some(email) = &app.state.cli_input.email {
-        let filtered_list: Vec<ArcGISSearchResults> = app
-            .agol
-            .agol_content
-            .iter()
-            .filter(|agol_item| agol_item.owner == *email)
-            .cloned()
-            .collect();
-
-        app.agol.agol_content = filtered_list;
-        if !app.state.queries.contains(&format!("Username == {email}")) {
-            app.state.queries.push(format!("Username == {email}"))
-        };
-    }
-}
-
 fn search_by_username(app: &mut App) {
     let username = app.state.user_input.input.clone();
-    let filtered_list: Vec<ArcGISSearchResults> = app
+    let filtered_list: Vec<&ArcGISSearchResults> = app
         .agol
         .agol_content
         .iter()
         .filter(|agol_item| agol_item.owner == username)
-        .cloned()
+        .copied()
         .collect();
 
     app.agol.agol_content = filtered_list;
@@ -134,12 +117,12 @@ fn search_by_keyword(app: &mut App) {
     let query = &app.state.user_input.input.to_lowercase();
 
     if query.len() >= 3 && query.len() <= 50 {
-        let search_results: Vec<ArcGISSearchResults> = app
+        let search_results: Vec<&ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
             .filter(|agol_item| agol_item.title.to_lowercase().contains(query))
-            .cloned()
+            .copied()
             .collect();
 
         app.state.search_popup = false;
@@ -165,7 +148,7 @@ fn search_by_item_id(app: &mut App) {
     let query = &app.state.user_input.input;
 
     if query.len() >= 3 && query.len() <= 50 {
-        let search_results: Vec<ArcGISSearchResults> = app
+        let search_results: Vec<&ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
@@ -211,19 +194,19 @@ fn launch_search(app: &mut App) {
 fn all_usernames(app: &mut App) {
     app.agol.agol_content.iter().for_each(|agol_item| {
         app.state
-            .usernames
+            .items_per_username
             .entry(agol_item.owner.clone())
             .and_modify(|count| *count += 1)
             .or_insert(1);
     });
 }
 
-async fn reset_filters(app: &mut App) {
-    app.agol.agol_content = app.agol.cached_agol_content.clone();
+async fn reset_filters(app: &mut App<'_>) {
+    app.agol.agol_content = app.agol.cached_agol_content.to_vec();
     app.state.agol_content_widget_state.select(Some(0));
     app.state.user_input.character_index = 0;
     app.state.search_popup = false;
-    app.state.usernames.clear();
+    // app.state.items_per_username.clear();
     app.state.user_input.input.clear();
     app.state.queries.clear();
     app.state.errors = None;
@@ -260,7 +243,6 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
                 Action::UserInputSubmitQuery
             }
             (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
-            (KeyModifiers::NONE, KeyCode::Char('f')) => Action::FilterByUsernameCli,
             //TODO if pressing s clear user input and then launch search
             (KeyModifiers::NONE, KeyCode::Char('s')) | (KeyModifiers::NONE, KeyCode::Char('i')) => {
                 Action::SearchByKeyword
@@ -296,7 +278,7 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
     }
 }
 
-pub async fn handle_action(app: &mut App, action: Action) {
+pub async fn handle_action(app: &mut App<'_>, action: Action) {
     match action {
         Action::MoveSelectionDown => {
             let next = move_selection(
@@ -380,11 +362,7 @@ pub async fn handle_action(app: &mut App, action: Action) {
             FocusedWidget::BrokenConnections => {}
         },
         Action::ZeroReferences => {
-            let list_content = filter_layer_no_references(app)
-                .into_iter()
-                .cloned()
-                .collect();
-            app.agol.agol_content = list_content;
+            filter_layer_no_references(app);
             if app.agol.agol_content.is_empty() {
                 app.state.agol_content_widget_state.select(None);
             } else {
@@ -393,15 +371,6 @@ pub async fn handle_action(app: &mut App, action: Action) {
             if !app.state.queries.contains(&String::from("Zero References")) {
                 app.state.queries.push(String::from("Zero References"))
             };
-        }
-        // Action::FilterByUsername => {
-        //     filter_by_username(
-        //         app,
-        //         String::from("Damian.Sweet@cityoflonetree.com_CityofLoneTree"),
-        //     );
-        // }
-        Action::FilterByUsernameCli => {
-            filter_by_username_cli(app);
         }
         Action::SearchByKeyword => {
             launch_search(app);

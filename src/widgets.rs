@@ -19,10 +19,3 @@ pub fn invalid_user_input_widget() -> Paragraph<'static> {
 }
 
 // SUCCESS WIDGETS
-
-pub fn loading_screen_widget() -> Paragraph<'static> {
-    Paragraph::new("Loading data, please wait...")
-        .block(Block::bordered())
-        .style(Style::new().yellow())
-        .alignment(Alignment::Center)
-}

@@ -7,8 +7,8 @@ use agol::ArcGISAccessToken;
 use ratatui::widgets::{ListState, TableState};
 
 #[derive(Debug)]
-pub struct App {
-    pub agol: Agol,
+pub struct App<'a> {
+    pub agol: Agol<'a>,
     pub config: Config,
     pub state: State,
 }
@@ -23,12 +23,11 @@ pub struct State {
     pub user_input: UserInput,
     pub search_type: SearchType,
     pub input_mode: InputMode,
-    pub usernames: HashMap<String, u16>,
+    pub items_per_username: HashMap<String, u16>,
     pub cli_input: Args,
     pub errors: Option<Errors>,
     pub queries: Vec<String>,
     pub running: bool,
-    pub loading: bool,
     pub references_loading: bool,
     pub users_loading: bool,
     pub search_popup: bool,
@@ -41,9 +40,9 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone)]
-pub struct Agol {
-    pub agol_content: Vec<ArcGISSearchResults>,
-    pub cached_agol_content: Vec<ArcGISSearchResults>,
+pub struct Agol<'a> {
+    pub agol_content: Vec<&'a ArcGISSearchResults>,
+    pub cached_agol_content: Vec<&'a ArcGISSearchResults>,
     pub references: ArcGISReferences,
     pub users: Vec<Users>,
 }
@@ -96,4 +95,12 @@ pub struct Args {
     /// Search term to filter results
     #[arg(short, long)]
     pub search: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum CliArgsFilter {
+    Email,
+    SearchTerm,
+    Both,
+    None,
 }

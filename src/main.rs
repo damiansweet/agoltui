@@ -1,4 +1,4 @@
-use crate::errors::AppError;
+use crate::{errors::AppError, models::CliArgsFilter};
 
 use agol::models::{ArcGISReferences, ArcGISSearchResults, Users};
 use clap::Parser;
@@ -24,7 +24,7 @@ mod widgets;
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
-    let args = models::Args::parse();
+    // let args = models::Args::parse();
     let mut terminal = ratatui::init();
 
     let client = Arc::new(reqwest::Client::new());
@@ -49,9 +49,35 @@ async fn main() -> color_eyre::Result<()> {
     )
     .await?;
 
+    //TODO check cli args and filter agol_content accordingly
+
+    let agol_content = match models::Args::parse() {
+        Args {
+            email: Some(email),
+            search: Some(search),
+        } => utils::filter_cli_args(
+            &agol_items,
+            Some(&email),
+            Some(&search),
+            CliArgsFilter::Both,
+        ),
+        Args {
+            email: Some(email),
+            search: None,
+        } => utils::filter_cli_args(&agol_items, Some(&email), None, CliArgsFilter::Email),
+        Args {
+            email: None,
+            search: Some(search),
+        } => utils::filter_cli_args(&agol_items, None, Some(&search), CliArgsFilter::SearchTerm),
+        Args {
+            email: None,
+            search: None,
+        } => utils::filter_cli_args(&agol_items, None, None, CliArgsFilter::None),
+    };
+
     let agol = Agol {
-        agol_content: agol_items.clone(),
-        cached_agol_content: agol_items,
+        agol_content,
+        cached_agol_content: agol_items.iter().collect(),
         references: ArcGISReferences::default(),
         users: vec![Users::default()],
     };
@@ -63,7 +89,7 @@ async fn main() -> color_eyre::Result<()> {
 
     let client_bg = Arc::clone(&client);
     let token_bg = Arc::clone(&config.access_token);
-    let items_bg = agol.agol_content.clone();
+    let items_bg = agol_items.clone();
 
     tokio::spawn(async move {
         if let Ok(refs) =
@@ -83,7 +109,7 @@ async fn main() -> color_eyre::Result<()> {
         }
     });
 
-    let mut app = ui::init_state(args, agol.clone(), config.clone());
+    let mut app = ui::init_state(agol.clone(), config.clone());
 
     while app.state.running {
         terminal.draw(|frame| ui::ui(frame, &mut app))?;

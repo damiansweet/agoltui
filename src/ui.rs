@@ -6,9 +6,7 @@ use crate::models::{
     Agol, App, Args, Config, Errors, FocusedWidget, InputMode, SearchType, State, UserInput,
 };
 use crate::utils;
-use crate::widgets::{
-    invalid_user_input_widget, loading_screen_widget, no_access_token_error_widget,
-};
+use crate::widgets::{invalid_user_input_widget, no_access_token_error_widget};
 use ratatui::style::{Color, Style};
 use ratatui::{
     Frame,
@@ -19,81 +17,24 @@ use ratatui::{
     },
 };
 
-pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> App {
-    let mut agol_content_widget_state = ListState::default();
-    let selected = Some(0);
-    agol_content_widget_state.select(selected);
-
-    let mut reference_table_state = TableState::default();
-    reference_table_state.select(Some(0));
-    let focused_widget = FocusedWidget::default();
-    let running = true;
-    let references_loading = true;
-    let users_loading = true;
-    let loading = false;
-    let search_popup = false;
-    let input_mode = InputMode::Normal;
-
-    let input = match &cli_input.email {
-        Some(email) => email.to_string(),
-        None => String::default(),
-    };
-
-    let user_input = UserInput {
-        input,
-        character_index: 0,
-        highlight_range: None,
-    };
-
-    let usernames = HashMap::new();
-
-    let mut username_state = TableState::default();
-    username_state.select(Some(0));
-
-    let mut broken_connections_state = TableState::default();
-    broken_connections_state.select(Some(0));
-
-    let errors = None;
-
-    let search_type = SearchType::default();
-    let queries = Vec::new();
-
-    let state = State {
-        agol_content_widget_state,
-        reference_table_state,
-        broken_connections_state,
-        username_state,
-        focused_widget,
-        user_input,
-        search_type,
-        input_mode,
-        usernames,
-        cli_input,
-        errors,
-        queries,
-        running,
-        loading,
-        references_loading,
-        users_loading,
-        search_popup,
-    };
-
+pub fn init_state(agol: Agol, config: Config) -> App {
     App {
         agol,
         config,
-        state,
+        state: utils::default_app_state(),
     }
 }
 
 fn selected_item<'a>(
     state: &App,
-    items: &'a [ArcGISSearchResults],
+    items: &Vec<&'a ArcGISSearchResults>,
 ) -> Option<&'a ArcGISSearchResults> {
     state
         .state
         .agol_content_widget_state
         .selected()
         .and_then(|i| items.get(i))
+        .map(|v| &**v)
 }
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -153,15 +94,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     ));
                 }
             } else {
-                //TODO create users loading widget
-                if app.state.loading {
-                    let loading_screen_widget = loading_screen_widget();
-                    frame.render_widget(loading_screen_widget, frame.area())
-                } else if !app.state.usernames.is_empty() {
+                if !app.state.items_per_username.is_empty() {
                     let current_query = app.state.queries.clone();
                     let rows: Vec<Row> = app
                         .state
-                        .usernames
+                        .items_per_username
                         .iter()
                         .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
                         .collect();
