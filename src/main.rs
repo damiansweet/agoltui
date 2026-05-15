@@ -7,14 +7,16 @@ use std::sync::Arc;
 
 use std::collections::HashSet;
 
-use crate::ui::{Agol, Config};
+use crate::models::{Agol, Args, Config};
 
 mod action;
 mod agol_data;
 mod errors;
+mod helix_keybinds;
 mod models;
 mod ui;
 mod utils;
+mod widgets;
 
 //TODO display feature layer info that has the most references
 
@@ -22,7 +24,7 @@ mod utils;
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
-    let args = ui::Args::parse();
+    let args = models::Args::parse();
     let mut terminal = ratatui::init();
 
     let client = Arc::new(reqwest::Client::new());

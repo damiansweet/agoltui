@@ -1,13 +1,15 @@
+use agol::models::ArcGISSearchResults;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use agol::ArcGISAccessToken;
-use agol::models::{ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults, Users};
-use clap::Parser;
-
+use crate::helix_keybinds::build_input_spans;
+use crate::models::{
+    Agol, App, Args, Config, Errors, FocusedWidget, InputMode, SearchType, State, UserInput,
+};
 use crate::utils;
+use crate::widgets::{
+    invalid_user_input_widget, loading_screen_widget, no_access_token_error_widget,
+};
 use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
@@ -16,98 +18,6 @@ use ratatui::{
         Row, Table, TableState, Wrap,
     },
 };
-
-#[derive(Debug)]
-pub struct App {
-    pub agol: Agol,
-    pub config: Config,
-    pub state: State,
-}
-
-#[derive(Debug, Default)]
-pub struct State {
-    pub agol_content_widget_state: ListState,
-    pub reference_table_state: TableState,
-    pub broken_connections_state: TableState,
-    pub username_state: TableState,
-    pub focused_widget: FocusedWidget,
-    pub user_input: UserInput,
-    pub search_type: SearchType,
-    pub input_mode: InputMode,
-    pub usernames: HashMap<String, u16>,
-    pub cli_input: Args,
-    pub errors: Option<Errors>,
-    pub queries: Vec<String>,
-    pub running: bool,
-    pub loading: bool,
-    pub references_loading: bool,
-    pub users_loading: bool,
-    pub search_popup: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    pub org_info: ArcGISOrgInfo,
-    pub access_token: Arc<ArcGISAccessToken>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Agol {
-    pub agol_content: Vec<ArcGISSearchResults>,
-    pub cached_agol_content: Vec<ArcGISSearchResults>,
-    pub references: ArcGISReferences,
-    pub users: Vec<Users>,
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub enum FocusedWidget {
-    #[default]
-    TopList,
-    BottomTable,
-    BrokenConnections,
-}
-
-#[derive(Debug, Default)]
-pub struct UserInput {
-    pub input: String,
-    pub character_index: usize,
-    pub highlight_range: Option<(usize, usize)>,
-}
-
-#[derive(Debug, Default)]
-pub enum InputMode {
-    #[default]
-    Normal,
-    Editing,
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub enum SearchType {
-    #[default]
-    Title,
-    Owner,
-    Id,
-}
-
-#[derive(Debug)]
-pub enum Errors {
-    NoAccessToken,
-    // TODO fetch all org usernames
-    //TODO create third widget and display if email not in org usernames
-    InvalidUserInput,
-}
-
-#[derive(Parser, Debug, Clone, Default)]
-#[command(version, about, long_about = None)]
-pub struct Args {
-    /// Email of the user to search
-    #[arg(short, long)]
-    pub email: Option<String>,
-
-    /// Search term to filter results
-    #[arg(short, long)]
-    pub search: Option<String>,
-}
 
 pub fn init_state(cli_input: Args, agol: Agol, config: Config) -> App {
     let mut agol_content_widget_state = ListState::default();
@@ -186,101 +96,16 @@ fn selected_item<'a>(
         .and_then(|i| items.get(i))
 }
 
-// ERROR WIDGETS
-
-fn no_access_token_error_widget() -> Paragraph<'static> {
-    Paragraph::new("No Access Token Found")
-        .block(Block::bordered().title("Error"))
-        .style(Style::new().red())
-        .alignment(Alignment::Center)
-}
-
-fn invalid_user_input_widget() -> Paragraph<'static> {
-    Paragraph::new("Query must be between 3-50 characters")
-        .block(Block::bordered().title("Error"))
-        .style(Style::new().red())
-        .alignment(Alignment::Center)
-}
-
-// SUCCESS WIDGETS
-
-fn loading_screen_widget() -> Paragraph<'static> {
-    Paragraph::new("Loading data, please wait...")
-        .block(Block::bordered())
-        .style(Style::new().yellow())
-        .alignment(Alignment::Center)
-}
-
-fn build_input_spans(
-    text: &str,
-    cursor_pos: usize,
-    highlight_range: Option<(usize, usize)>,
-    input_mode: &InputMode,
-) -> Line<'static> {
-    let chars: Vec<char> = text.chars().collect();
-
-    match input_mode {
-        InputMode::Editing => {
-            let mut spans = Vec::new();
-            let before: String = chars[..cursor_pos.min(chars.len())].iter().collect();
-            let cursor_char = if cursor_pos < chars.len() {
-                chars[cursor_pos].to_string()
-            } else {
-                String::from(" ")
-            };
-            let after: String = chars[(cursor_pos + 1).min(chars.len())..].iter().collect();
-
-            if !before.is_empty() {
-                spans.push(Span::raw(before));
-            }
-            spans.push(Span::styled(cursor_char, Style::new().black().on_white()));
-            if !after.is_empty() {
-                spans.push(Span::raw(after));
-            }
-            Line::from(spans)
-        }
-        InputMode::Normal => {
-            if let Some((a, b)) = highlight_range {
-                let start = a.min(b);
-                let end = a.max(b);
-                let before: String = chars[..start.min(chars.len())].iter().collect();
-                let highlighted: String = chars[start.min(chars.len())..end.min(chars.len())]
-                    .iter()
-                    .collect();
-                let after: String = chars[end.min(chars.len())..].iter().collect();
-
-                let mut spans = Vec::new();
-                if !before.is_empty() {
-                    spans.push(Span::raw(before));
-                }
-                spans.push(Span::styled(
-                    highlighted,
-                    Style::new().bold().white().on_light_blue(),
-                ));
-                if !after.is_empty() {
-                    spans.push(Span::raw(after));
-                }
-                Line::from(spans)
-            } else {
-                Line::raw(text.to_string())
-            }
-        }
-    }
-}
-
 pub fn ui(frame: &mut Frame, app: &mut App) {
     match app.state.errors {
         Some(Errors::NoAccessToken) => {
-            let no_access_token_error_widget = no_access_token_error_widget();
-
-            frame.render_widget(no_access_token_error_widget, frame.area())
+            frame.render_widget(no_access_token_error_widget(), frame.area())
         }
         Some(Errors::InvalidUserInput) => {
             frame.render_widget(invalid_user_input_widget(), frame.area());
         }
         None => {
             if app.state.search_popup {
-                let query = app.state.user_input.input.clone();
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(vec![
@@ -291,7 +116,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     .split(frame.area());
 
                 let input_spans = build_input_spans(
-                    &query,
+                    &app.state.user_input.input,
                     app.state.user_input.character_index,
                     app.state.user_input.highlight_range,
                     &app.state.input_mode,

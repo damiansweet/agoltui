@@ -1,7 +1,8 @@
-use crate::ui::{App, InputMode, SearchType, State};
+use crate::helix_keybinds::{helix_next_word, helix_previous_word};
+use crate::models::{App, Errors, FocusedWidget, InputMode, SearchType, State};
 use crate::utils::{
-    clear_highlight, extract_usernames, filter_layer_no_references, format_email,
-    get_layer_references, helix_next_word, helix_previous_word,
+    clear_highlight, clear_user_input, disable_search_popup, extract_usernames,
+    filter_layer_no_references, get_layer_references,
 };
 
 use agol::models::ArcGISSearchResults;
@@ -96,12 +97,11 @@ fn clamp_cursor(app: &App, new_cursor_pos: usize) -> usize {
 
 fn filter_by_username_cli(app: &mut App) {
     if let Some(email) = &app.state.cli_input.email {
-        let email = format_email(email);
         let filtered_list: Vec<ArcGISSearchResults> = app
             .agol
             .agol_content
             .iter()
-            .filter(|agol_item| agol_item.owner == email)
+            .filter(|agol_item| agol_item.owner == *email)
             .cloned()
             .collect();
 
@@ -113,13 +113,6 @@ fn filter_by_username_cli(app: &mut App) {
 }
 
 fn search_by_username(app: &mut App) {
-    // let username = {
-    //     format!(
-    //         "{}_{}",
-    //         format_email(state.user_input.input.as_str()),
-    //         state.org_info.url_key
-    //     )
-    // };
     let username = app.state.user_input.input.clone();
     let filtered_list: Vec<ArcGISSearchResults> = app
         .agol
@@ -130,16 +123,11 @@ fn search_by_username(app: &mut App) {
         .collect();
 
     app.agol.agol_content = filtered_list;
-    app.state.search_popup = false;
-    if !app
-        .state
+    disable_search_popup(&mut app.state);
+    clear_user_input(&mut app.state);
+    app.state
         .queries
-        .contains(&format!("Owner/Username == '{username}'"))
-    {
-        app.state
-            .queries
-            .push(format!("Owner/Username == '{username}'"))
-    };
+        .push(format!("Owner/Username == '{username}'"));
 }
 
 fn search_by_keyword(app: &mut App) {
@@ -169,7 +157,7 @@ fn search_by_keyword(app: &mut App) {
             app.state.agol_content_widget_state.select(Some(0));
         }
     } else {
-        app.state.errors = Some(crate::ui::Errors::InvalidUserInput);
+        app.state.errors = Some(Errors::InvalidUserInput);
     }
 }
 
@@ -196,7 +184,7 @@ fn search_by_item_id(app: &mut App) {
             app.state.agol_content_widget_state.select(Some(0));
         }
     } else {
-        app.state.errors = Some(crate::ui::Errors::InvalidUserInput);
+        app.state.errors = Some(Errors::InvalidUserInput);
     }
 }
 
@@ -251,18 +239,18 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
     match state.input_mode {
         InputMode::Normal => match (key.modifiers, key.code) {
             (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
-                if state.focused_widget == crate::ui::FocusedWidget::TopList {
+                if state.focused_widget == FocusedWidget::TopList {
                     Action::MoveSelectionDown
-                } else if state.focused_widget == crate::ui::FocusedWidget::BottomTable {
+                } else if state.focused_widget == FocusedWidget::BottomTable {
                     Action::MoveReferenceDown
                 } else {
                     Action::MoveBrokenConnectionDown
                 }
             }
             (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
-                if state.focused_widget == crate::ui::FocusedWidget::TopList {
+                if state.focused_widget == FocusedWidget::TopList {
                     Action::MoveSelectionUp
-                } else if state.focused_widget == crate::ui::FocusedWidget::BottomTable {
+                } else if state.focused_widget == FocusedWidget::BottomTable {
                     Action::MoveReferenceUp
                 } else {
                     Action::MoveBrokenConnectionUp
@@ -279,7 +267,7 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
             }
             (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
             (KeyModifiers::NONE, KeyCode::Esc) => {
-                if state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
+                if state.focused_widget == FocusedWidget::BrokenConnections {
                     Action::GoBack
                 } else {
                     Action::Reset
@@ -377,19 +365,19 @@ pub async fn handle_action(app: &mut App, action: Action) {
             }
         }
         Action::FocusBrokenConnections => {
-            app.state.focused_widget = crate::ui::FocusedWidget::BrokenConnections;
+            app.state.focused_widget = FocusedWidget::BrokenConnections;
         }
         Action::GoBack => {
-            app.state.focused_widget = crate::ui::FocusedWidget::TopList;
+            app.state.focused_widget = FocusedWidget::TopList;
         }
         Action::SwitchFocus => match app.state.focused_widget {
-            crate::ui::FocusedWidget::TopList => {
-                app.state.focused_widget = crate::ui::FocusedWidget::BottomTable;
+            FocusedWidget::TopList => {
+                app.state.focused_widget = FocusedWidget::BottomTable;
             }
-            crate::ui::FocusedWidget::BottomTable => {
-                app.state.focused_widget = crate::ui::FocusedWidget::TopList;
+            FocusedWidget::BottomTable => {
+                app.state.focused_widget = FocusedWidget::TopList;
             }
-            crate::ui::FocusedWidget::BrokenConnections => {}
+            FocusedWidget::BrokenConnections => {}
         },
         Action::ZeroReferences => {
             let list_content = filter_layer_no_references(app)
@@ -475,8 +463,8 @@ pub async fn handle_action(app: &mut App, action: Action) {
         }
         Action::Reset => {
             reset_filters(app).await;
-            if app.state.focused_widget == crate::ui::FocusedWidget::BrokenConnections {
-                app.state.focused_widget = crate::ui::FocusedWidget::TopList;
+            if app.state.focused_widget == FocusedWidget::BrokenConnections {
+                app.state.focused_widget = FocusedWidget::TopList;
             }
         }
         Action::Quit => {
