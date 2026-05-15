@@ -283,7 +283,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 let query = app.state.user_input.input.clone();
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .constraints(vec![
+                        Constraint::Percentage(40),
+                        Constraint::Percentage(40),
+                        Constraint::Percentage(20),
+                    ])
                     .split(frame.area());
 
                 let input_spans = build_input_spans(
@@ -309,10 +313,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     .style(Style::new().light_blue())
                     .block(Block::bordered().title("KeyBinds"));
 
+                let valid_users_widget = List::from_iter(utils::extract_usernames(&app.agol.users));
+
                 let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());
                 frame.render_widget(user_input, layout[0]);
-                frame.render_widget(key_binds_widget, layout[1]);
+                frame.render_widget(valid_users_widget, layout[1]);
+                frame.render_widget(key_binds_widget, layout[2]);
 
                 if matches!(app.state.input_mode, InputMode::Editing) {
                     frame.set_cursor_position(Position::new(
