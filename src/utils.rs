@@ -2,6 +2,7 @@ use crate::models::{
     App, Args, CliArgsFilter, FocusedWidget, InputMode, SearchType, State, UserInput,
 };
 use agol::models::{ArcGISSearchResults, Users};
+use clap::Parser;
 use ratatui::widgets::{ListState, TableState};
 use std::collections::{HashMap, HashSet};
 
@@ -71,7 +72,7 @@ pub fn default_app_state() -> State {
 pub fn filter_cli_args<'a>(
     agol_items: &'a [ArcGISSearchResults],
     args: &Args,
-    filter_type: CliArgsFilter,
+    filter_type: &CliArgsFilter,
 ) -> Vec<&'a ArcGISSearchResults> {
     match filter_type {
         CliArgsFilter::Both => agol_items
@@ -106,7 +107,30 @@ pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> Str
     }
 }
 
-//TODO create test for  default_app_state
+pub fn check_cli_args() -> (Args, CliArgsFilter) {
+    let cli_args = Args::parse();
+    let cli_filter = match cli_args {
+        Args {
+            email: Some(_),
+            search: Some(_),
+        } => CliArgsFilter::Both,
+
+        Args {
+            email: Some(_),
+            search: None,
+        } => CliArgsFilter::Email,
+        Args {
+            email: None,
+            search: Some(_),
+        } => CliArgsFilter::SearchTerm,
+        Args {
+            email: None,
+            search: None,
+        } => CliArgsFilter::None,
+    };
+
+    (cli_args, cli_filter)
+} //TODO create test for  default_app_state
 
 #[cfg(test)]
 mod tests {

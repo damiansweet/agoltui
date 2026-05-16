@@ -205,7 +205,7 @@ async fn reset_filters(app: &mut App<'_>) {
     app.state.agol_content_widget_state.select(Some(0));
     app.state.user_input.character_index = 0;
     app.state.search_popup = false;
-    // app.state.items_per_username.clear();
+    app.state.items_per_username.clear();
     app.state.user_input.input.clear();
     app.state.queries.clear();
     app.state.errors = None;

@@ -1,16 +1,16 @@
 use crate::{
     errors::AppError,
-    models::{CliArgsFilter, Errors},
+    models::{App, Errors},
 };
-
 use agol::models::{ArcGISReferences, ArcGISSearchResults, Users};
-use clap::Parser;
 use crossterm::event::{self, Event};
+use ratatui::DefaultTerminal;
 use std::sync::Arc;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use std::collections::HashSet;
 
-use crate::models::{Agol, Args, Config};
+use crate::models::{Agol, Config};
 
 mod action;
 mod agol_data;
@@ -20,8 +20,6 @@ mod models;
 mod ui;
 mod utils;
 mod widgets;
-
-//TODO display feature layer info that has the most references
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
@@ -57,80 +55,87 @@ async fn main() -> color_eyre::Result<()> {
             )
             .await?;
 
-            let cli_args = Args::parse();
-            let cli_filter = match cli_args {
-                Args {
-                    email: Some(_),
-                    search: Some(_),
-                } => CliArgsFilter::Both,
-
-                Args {
-                    email: Some(_),
-                    search: None,
-                } => CliArgsFilter::Email,
-                Args {
-                    email: None,
-                    search: Some(_),
-                } => CliArgsFilter::SearchTerm,
-                Args {
-                    email: None,
-                    search: None,
-                } => CliArgsFilter::None,
-            };
-
-            let agol_content = utils::filter_cli_args(&agol_items, &cli_args, cli_filter.clone());
-
-            let cli_args_bg = cli_args.clone();
-            let cli_filter_bg = cli_filter;
-
-            tokio::spawn(async move {
-                let query = utils::build_cli_args_query(cli_args_bg, cli_filter_bg).await;
-                let _ = cli_args_tx.send(query);
-            });
+            let (cli_args, cli_filter) = utils::check_cli_args();
 
             let agol = Agol {
-                agol_content,
+                agol_content: utils::filter_cli_args(&agol_items, &cli_args, &cli_filter),
                 cached_agol_content: agol_items.iter().collect(),
                 references: ArcGISReferences::default(),
                 users: vec![Users::default()],
             };
 
-            let client_bg = Arc::clone(&client);
-            let token_bg = Arc::clone(&config.access_token);
-            let items_bg = agol_items.clone();
+            // Sets initial query in state if cli args are provided
+            {
+                let cli_args = cli_args.clone();
 
-            tokio::spawn(async move {
-                if let Ok(refs) =
-                    agol_data::process_references_only(client_bg.clone(), token_bg, items_bg).await
-                {
-                    let _ = references_tx.send(refs);
-                }
-            });
+                tokio::spawn(async move {
+                    let query = utils::build_cli_args_query(cli_args, cli_filter).await;
+                    let _ = cli_args_tx.send(query);
+                });
+            }
 
-            let token_users = Arc::clone(&config.access_token);
-            let org_id_users = config.org_info.org_id.clone();
+            // Sets references state
+            {
+                let client = Arc::clone(&client);
+                let token = Arc::clone(&config.access_token);
+                let agol_items = agol_items.clone();
 
-            tokio::spawn(async move {
-                if let Ok(refs) =
-                    agol::fetch_org_users(&client.clone(), &token_users, &org_id_users).await
-                {
-                    let _ = users_tx.send(refs);
-                }
-            });
+                tokio::spawn(async move {
+                    if let Ok(refs) =
+                        agol_data::process_references_only(client, token, agol_items).await
+                    {
+                        let _ = references_tx.send(refs);
+                    }
+                });
+            }
 
-            app = ui::init_state(agol.clone(), config.clone());
+            // Sets users state
+            {
+                let client = Arc::clone(&client);
+                let token = Arc::clone(&config.access_token);
+                let org_id = config.org_info.org_id.clone();
+
+                tokio::spawn(async move {
+                    if let Ok(refs) = agol::fetch_org_users(client, token, &org_id).await {
+                        let _ = users_tx.send(refs);
+                    }
+                });
+            }
+
+            app = ui::init_state(agol, config);
         }
         Err(_) => {
-            //TODO match on specific error and render match error widget
             tokio::spawn(async move {
                 let _ = errors_tx.send(Errors::NoAccessToken);
             });
         }
     };
+
     let mut terminal = ratatui::init();
 
+    run(
+        &mut terminal,
+        &mut app,
+        &mut errors_rx,
+        &mut cli_args_rx,
+        &mut references_rx,
+        &mut users_rx,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn run(
+    terminal: &mut DefaultTerminal,
+    app: &mut App<'_>,
+    errors_rx: &mut UnboundedReceiver<Errors>,
+    cli_args_rx: &mut UnboundedReceiver<String>,
+    references_rx: &mut UnboundedReceiver<ArcGISReferences>,
+    users_rx: &mut UnboundedReceiver<Vec<Users>>,
+) -> std::io::Result<()> {
     while app.state.running {
-        terminal.draw(|frame| ui::ui(frame, &mut app))?;
+        terminal.draw(|frame| ui::ui(frame, app))?;
         if let Ok(errors) = errors_rx.try_recv() {
             app.state.errors = Some(errors);
         }
@@ -138,7 +143,8 @@ async fn main() -> color_eyre::Result<()> {
         if let Ok(args_query) = cli_args_rx.try_recv() {
             app.state.queries.push(args_query);
         }
-        let valid_agol_item_ids = agol::extract_item_ids(&app.agol.agol_content);
+        //TODO move out of loop and set in state
+        let valid_agol_item_ids = agol::extract_item_ids(&app.agol.cached_agol_content);
 
         if let Ok(mut refs) = references_rx.try_recv() {
             let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
@@ -166,9 +172,10 @@ async fn main() -> color_eyre::Result<()> {
         }
         if let Event::Key(key) = event::read()? {
             let action = action::handle_key(&app.state, key);
-            action::handle_action(&mut app, action).await;
+            action::handle_action(app, action).await;
         }
     }
+
     ratatui::restore();
     Ok(())
 }
