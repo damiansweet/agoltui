@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Paragraph};
 // ERROR WIDGETS
 
 pub fn no_access_token_error_widget() -> Paragraph<'static> {
-    Paragraph::new("No Access Token Found")
+    Paragraph::new("Invalid Access Token\nPress 'q' to quit")
         .block(Block::bordered().title("Error"))
         .style(Style::new().red())
         .alignment(Alignment::Center)
