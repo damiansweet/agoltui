@@ -1,4 +1,7 @@
-use crate::{errors::AppError, models::CliArgsFilter};
+use crate::{
+    errors::AppError,
+    models::{CliArgsFilter, Errors},
+};
 
 use agol::models::{ArcGISReferences, ArcGISSearchResults, Users};
 use clap::Parser;
@@ -24,105 +27,118 @@ mod widgets;
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
-    // let args = models::Args::parse();
-    let mut terminal = ratatui::init();
+    let (errors_tx, mut errors_rx) = tokio::sync::mpsc::unbounded_channel::<Errors>();
+    let (cli_args_tx, mut cli_args_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (users_tx, mut users_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (references_tx, mut references_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let mut app = ui::init_state(Agol::default(), Config::default());
+    let mut agol_items: Vec<ArcGISSearchResults> = vec![];
 
     let client = Arc::new(reqwest::Client::new());
-    let access_token = Arc::new(agol::fetch_oauth2_agol_token(&client).await?);
+    match agol::fetch_oauth2_agol_token(&client).await {
+        Ok(access_token) => {
+            let config = Config {
+                org_info: agol::fetch_org_info(&client, &access_token).await?,
+                access_token: Arc::new(access_token.clone()),
+            };
 
-    let config = Config {
-        org_info: agol::fetch_org_info(&client, &access_token).await?,
-        access_token: access_token.clone(),
-    };
-
-    let total_agol_count =
-        agol::fetch_agol_content_total_count(&client, &access_token, &config.org_info.org_id)
+            let total_agol_count = agol::fetch_agol_content_total_count(
+                &client,
+                &access_token,
+                &config.org_info.org_id,
+            )
             .await?;
-    let agol_items = agol_data::fetch_agol_data(
-        Arc::clone(&client),
-        Arc::clone(&config.access_token),
-        total_agol_count,
-        &config.org_info.org_id,
-    )
-    .await?;
+            agol_items = agol_data::fetch_agol_data(
+                Arc::clone(&client),
+                Arc::clone(&config.access_token),
+                total_agol_count,
+                &config.org_info.org_id,
+            )
+            .await?;
 
-    //TODO check cli args and filter agol_content accordingly
+            let cli_args = Args::parse();
+            let cli_filter = match cli_args {
+                Args {
+                    email: Some(_),
+                    search: Some(_),
+                } => CliArgsFilter::Both,
 
-    let (cli_args_tx, mut cli_args_rx) = tokio::sync::mpsc::channel::<String>(1);
+                Args {
+                    email: Some(_),
+                    search: None,
+                } => CliArgsFilter::Email,
+                Args {
+                    email: None,
+                    search: Some(_),
+                } => CliArgsFilter::SearchTerm,
+                Args {
+                    email: None,
+                    search: None,
+                } => CliArgsFilter::None,
+            };
 
-    let cli_args = Args::parse();
-    let cli_filter = match cli_args {
-        Args {
-            email: Some(_),
-            search: Some(_),
-        } => CliArgsFilter::Both,
+            let agol_content = utils::filter_cli_args(&agol_items, &cli_args, cli_filter.clone());
 
-        Args {
-            email: Some(_),
-            search: None,
-        } => CliArgsFilter::Email,
-        Args {
-            email: None,
-            search: Some(_),
-        } => CliArgsFilter::SearchTerm,
-        Args {
-            email: None,
-            search: None,
-        } => CliArgsFilter::None,
-    };
+            let cli_args_bg = cli_args.clone();
+            let cli_filter_bg = cli_filter;
 
-    let agol_content = utils::filter_cli_args(&agol_items, &cli_args, cli_filter.clone());
+            tokio::spawn(async move {
+                let query = utils::build_cli_args_query(cli_args_bg, cli_filter_bg).await;
+                let _ = cli_args_tx.send(query);
+            });
 
-    let cli_args_bg = cli_args.clone();
-    let cli_filter_bg = cli_filter;
+            let agol = Agol {
+                agol_content,
+                cached_agol_content: agol_items.iter().collect(),
+                references: ArcGISReferences::default(),
+                users: vec![Users::default()],
+            };
 
-    tokio::spawn(async move {
-        let query = utils::build_cli_args_query(cli_args_bg, cli_filter_bg).await;
-        let _ = cli_args_tx.send(query).await;
-    });
+            let client_bg = Arc::clone(&client);
+            let token_bg = Arc::clone(&config.access_token);
+            let items_bg = agol_items.clone();
 
-    let agol = Agol {
-        agol_content,
-        cached_agol_content: agol_items.iter().collect(),
-        references: ArcGISReferences::default(),
-        users: vec![Users::default()],
-    };
+            tokio::spawn(async move {
+                if let Ok(refs) =
+                    agol_data::process_references_only(client_bg.clone(), token_bg, items_bg).await
+                {
+                    let _ = references_tx.send(refs);
+                }
+            });
 
-    let valid_agol_item_ids = agol::extract_item_ids(&agol.agol_content);
+            let token_users = Arc::clone(&config.access_token);
+            let org_id_users = config.org_info.org_id.clone();
 
-    let (users_tx, mut users_rx) = tokio::sync::mpsc::channel::<Vec<Users>>(1);
-    let (references_tx, mut references_rx) = tokio::sync::mpsc::channel::<ArcGISReferences>(1);
+            tokio::spawn(async move {
+                if let Ok(refs) =
+                    agol::fetch_org_users(&client.clone(), &token_users, &org_id_users).await
+                {
+                    let _ = users_tx.send(refs);
+                }
+            });
 
-    let client_bg = Arc::clone(&client);
-    let token_bg = Arc::clone(&config.access_token);
-    let items_bg = agol_items.clone();
-
-    tokio::spawn(async move {
-        if let Ok(refs) =
-            agol_data::process_references_only(client_bg.clone(), token_bg, items_bg).await
-        {
-            let _ = references_tx.send(refs).await;
+            app = ui::init_state(agol.clone(), config.clone());
         }
-    });
-
-    let token_users = Arc::clone(&config.access_token);
-    let org_id_users = config.org_info.org_id.clone();
-
-    tokio::spawn(async move {
-        if let Ok(refs) = agol::fetch_org_users(&client.clone(), &token_users, &org_id_users).await
-        {
-            let _ = users_tx.send(refs).await;
+        Err(_) => {
+            //TODO match on specific error and render match error widget
+            tokio::spawn(async move {
+                let _ = errors_tx.send(Errors::NoAccessToken);
+            });
         }
-    });
-
-    let mut app = ui::init_state(agol.clone(), config.clone());
+    };
+    let mut terminal = ratatui::init();
 
     while app.state.running {
         terminal.draw(|frame| ui::ui(frame, &mut app))?;
+        if let Ok(errors) = errors_rx.try_recv() {
+            app.state.errors = Some(errors);
+        }
 
         if let Ok(args_query) = cli_args_rx.try_recv() {
             app.state.queries.push(args_query);
         }
+        let valid_agol_item_ids = agol::extract_item_ids(&app.agol.agol_content);
 
         if let Ok(mut refs) = references_rx.try_recv() {
             let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
@@ -153,8 +169,6 @@ async fn main() -> color_eyre::Result<()> {
             action::handle_action(&mut app, action).await;
         }
     }
-    //TODO match on specific error and render match error widget
-
     ratatui::restore();
     Ok(())
 }

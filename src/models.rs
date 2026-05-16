@@ -33,13 +33,13 @@ pub struct State {
     pub search_popup: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Config {
     pub org_info: ArcGISOrgInfo,
     pub access_token: Arc<ArcGISAccessToken>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Agol<'a> {
     pub agol_content: Vec<&'a ArcGISSearchResults>,
     pub cached_agol_content: Vec<&'a ArcGISSearchResults>,
