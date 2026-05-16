@@ -1,8 +1,8 @@
 use crate::helix_keybinds::{helix_next_word, helix_previous_word};
 use crate::models::{App, Errors, FocusedWidget, InputMode, SearchType, State};
 use crate::utils::{
-    clear_highlight, clear_user_input, disable_search_popup, extract_usernames,
-    filter_layer_no_references, get_layer_references,
+    clear_highlight, clear_user_input, disable_search_popup, filter_layer_no_references,
+    get_layer_references,
 };
 
 use agol::models::ArcGISSearchResults;
@@ -17,7 +17,6 @@ pub enum Action {
     MoveBrokenConnectionUp,
     SwitchFocus,
     ZeroReferences,
-    FilterByUsernameCli,
     SearchByKeyword,
     ListUsers,
     Reset,

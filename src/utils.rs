@@ -1,11 +1,11 @@
 use crate::models::{
-    App, Args, CliArgsFilter, Errors, FocusedWidget, InputMode, SearchType, State, UserInput,
+    App, Args, CliArgsFilter, FocusedWidget, InputMode, SearchType, State, UserInput,
 };
 use agol::models::{ArcGISSearchResults, Users};
 use ratatui::widgets::{ListState, TableState};
 use std::collections::{HashMap, HashSet};
 
-pub fn filter_layer_no_references<'a>(state: &'a mut App) {
+pub fn filter_layer_no_references(state: &mut App) {
     let mut no_reference_ids = Vec::new();
     for (k, v) in &state.agol.references.lookup {
         if v.is_empty() {
@@ -59,10 +59,6 @@ pub fn default_app_state() -> State {
         search_type: SearchType::default(),
         input_mode: InputMode::default(),
         items_per_username: HashMap::default(),
-        cli_input: Args {
-            email: None,
-            search: None,
-        },
         errors: None,
         queries: Vec::default(),
         running: true,
@@ -74,24 +70,39 @@ pub fn default_app_state() -> State {
 
 pub fn filter_cli_args<'a>(
     agol_items: &'a [ArcGISSearchResults],
-    email: Option<&str>,
-    search_term: Option<&str>,
+    args: &Args,
     filter_type: CliArgsFilter,
 ) -> Vec<&'a ArcGISSearchResults> {
     match filter_type {
         CliArgsFilter::Both => agol_items
             .iter()
-            .filter(|i| i.owner == email.unwrap() && i.title.contains(search_term.unwrap()))
+            .filter(|i| {
+                i.owner == *args.email.as_ref().unwrap()
+                    && i.title.contains(args.search.as_ref().unwrap())
+            })
             .collect(),
         CliArgsFilter::Email => agol_items
             .iter()
-            .filter(|i| i.owner == email.unwrap())
+            .filter(|i| i.owner == *args.email.as_ref().unwrap())
             .collect(),
         CliArgsFilter::SearchTerm => agol_items
             .iter()
-            .filter(|i| i.title.contains(search_term.unwrap()))
+            .filter(|i| i.title.contains(args.search.as_ref().unwrap()))
             .collect(),
         CliArgsFilter::None => agol_items.iter().collect(),
+    }
+}
+
+pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> String {
+    match filter_type {
+        CliArgsFilter::Both => format!(
+            "Owner/Username == '{}' &&  Title ILIKE '{}'",
+            args.email.unwrap_or_default(),
+            args.search.unwrap_or_default()
+        ),
+        CliArgsFilter::Email => format!("Owner/Username == '{}'", args.email.unwrap_or_default()),
+        CliArgsFilter::SearchTerm => format!("Title ILIKE '{}'", args.search.unwrap_or_default()),
+        CliArgsFilter::None => String::default(),
     }
 }
 

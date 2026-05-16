@@ -24,7 +24,7 @@ pub struct State {
     pub search_type: SearchType,
     pub input_mode: InputMode,
     pub items_per_username: HashMap<String, u16>,
-    pub cli_input: Args,
+    // pub cli_input: Args,
     pub errors: Option<Errors>,
     pub queries: Vec<String>,
     pub running: bool,
@@ -97,7 +97,7 @@ pub struct Args {
     pub search: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CliArgsFilter {
     Email,
     SearchTerm,

@@ -1,10 +1,7 @@
 use agol::models::ArcGISSearchResults;
-use std::collections::HashMap;
 
 use crate::helix_keybinds::build_input_spans;
-use crate::models::{
-    Agol, App, Args, Config, Errors, FocusedWidget, InputMode, SearchType, State, UserInput,
-};
+use crate::models::{Agol, App, Config, Errors, FocusedWidget, InputMode, SearchType};
 use crate::utils;
 use crate::widgets::{invalid_user_input_widget, no_access_token_error_widget};
 use ratatui::style::{Color, Style};
@@ -12,8 +9,8 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Position},
     widgets::{
-        Block, Cell, Clear, HighlightSpacing, List, ListDirection, ListItem, ListState, Paragraph,
-        Row, Table, TableState, Wrap,
+        Block, Cell, Clear, HighlightSpacing, List, ListDirection, ListItem, Paragraph, Row, Table,
+        Wrap,
     },
 };
 
@@ -72,12 +69,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         .block(Block::bordered().title("Search by Item Id")),
                 };
 
-                let key_binds =
-                    "Search by Keyword: <F1>\nSearch by Email: <F2>\nSearch by Item Id: <F3>";
-
-                let key_binds_widget = Paragraph::new(key_binds)
-                    .style(Style::new().light_blue())
-                    .block(Block::bordered().title("KeyBinds"));
+                let key_binds_widget = Paragraph::new(
+                    "Search by Keyword: <F1>\nSearch by Email: <F2>\nSearch by Item Id: <F3>",
+                )
+                .style(Style::new().light_blue())
+                .block(Block::bordered().title("KeyBinds"));
 
                 let valid_users_widget = List::from_iter(utils::extract_usernames(&app.agol.users));
 
@@ -149,7 +145,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         &mut app.state.broken_connections_state,
                     )
                 } else {
-                    // let area = frame.area();
                     let layout = Layout::default()
                         .direction(Direction::Vertical)
                         .constraints(vec![
@@ -172,7 +167,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         .block(
                             Block::bordered()
                                 .title_alignment(Alignment::Center)
-                                .title(format!("All AGOL Content List\t {num_list_items}"))
+                                .title(format!("AGOL Content List\t {num_list_items}"))
                                 .style(if app.state.focused_widget == FocusedWidget::TopList {
                                     Style::new().bg(Color::DarkGray)
                                 } else {
@@ -190,7 +185,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                             Style::new()
                         });
 
-                    // let content_count = all_agol_content.len();
                     let selected_title = selected_item(app, &app.agol.agol_content)
                         .map(|item| item.title.as_str())
                         .unwrap_or_default();
@@ -228,7 +222,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     let widget_bottom = if let Some(selected_id) =
                         selected_item(app, &app.agol.agol_content).map(|item| item.id.as_str())
                     {
-                        //TODO style selected table item and add to Uiapp.state
                         let references = utils::get_layer_references(selected_id, app);
                         let mut sorted_references: Vec<ArcGISSearchResults> = Vec::new();
                         for r in &references {
@@ -321,8 +314,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                             .style(Color::White)
                     };
 
-                    // if app.state.search_popup {
-                    // } else {
                     frame.render_stateful_widget(
                         widget_top,
                         layout[0],

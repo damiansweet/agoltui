@@ -35,9 +35,6 @@ async fn main() -> color_eyre::Result<()> {
         access_token: access_token.clone(),
     };
 
-    //TODO fetch list of org users in background and send to Agol when complete
-    // _ = agol::fetch_org_users(&client, &access_token).await?;
-
     let total_agol_count =
         agol::fetch_agol_content_total_count(&client, &access_token, &config.org_info.org_id)
             .await?;
@@ -51,29 +48,38 @@ async fn main() -> color_eyre::Result<()> {
 
     //TODO check cli args and filter agol_content accordingly
 
-    let agol_content = match models::Args::parse() {
+    let (cli_args_tx, mut cli_args_rx) = tokio::sync::mpsc::channel::<String>(1);
+
+    let cli_args = Args::parse();
+    let cli_filter = match cli_args {
         Args {
-            email: Some(email),
-            search: Some(search),
-        } => utils::filter_cli_args(
-            &agol_items,
-            Some(&email),
-            Some(&search),
-            CliArgsFilter::Both,
-        ),
+            email: Some(_),
+            search: Some(_),
+        } => CliArgsFilter::Both,
+
         Args {
-            email: Some(email),
+            email: Some(_),
             search: None,
-        } => utils::filter_cli_args(&agol_items, Some(&email), None, CliArgsFilter::Email),
+        } => CliArgsFilter::Email,
         Args {
             email: None,
-            search: Some(search),
-        } => utils::filter_cli_args(&agol_items, None, Some(&search), CliArgsFilter::SearchTerm),
+            search: Some(_),
+        } => CliArgsFilter::SearchTerm,
         Args {
             email: None,
             search: None,
-        } => utils::filter_cli_args(&agol_items, None, None, CliArgsFilter::None),
+        } => CliArgsFilter::None,
     };
+
+    let agol_content = utils::filter_cli_args(&agol_items, &cli_args, cli_filter.clone());
+
+    let cli_args_bg = cli_args.clone();
+    let cli_filter_bg = cli_filter;
+
+    tokio::spawn(async move {
+        let query = utils::build_cli_args_query(cli_args_bg, cli_filter_bg).await;
+        let _ = cli_args_tx.send(query).await;
+    });
 
     let agol = Agol {
         agol_content,
@@ -113,6 +119,10 @@ async fn main() -> color_eyre::Result<()> {
 
     while app.state.running {
         terminal.draw(|frame| ui::ui(frame, &mut app))?;
+
+        if let Ok(args_query) = cli_args_rx.try_recv() {
+            app.state.queries.push(args_query);
+        }
 
         if let Ok(mut refs) = references_rx.try_recv() {
             let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
