@@ -78,12 +78,24 @@ async fn main() -> color_eyre::Result<()> {
             {
                 let client = Arc::clone(&client);
                 let token = Arc::clone(&config.access_token);
-                let agol_items = agol_items.clone();
+                let agol_items_bg = agol_items.clone();
+                let valid_agol_item_ids = agol::extract_item_ids(&agol_items.clone());
 
+                //TODO cleanup extra clones if possible
                 tokio::spawn(async move {
-                    if let Ok(refs) =
-                        agol_data::process_references_only(client, token, agol_items).await
+                    if let Ok(mut refs) =
+                        agol_data::process_references_only(client, token, agol_items_bg).await
                     {
+                        let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
+
+                        for (k, v) in &refs.lookup {
+                            if !valid_agol_item_ids.contains(k) {
+                                for j in v {
+                                    broken_connections.insert(j.clone());
+                                }
+                            }
+                        }
+                        refs.broken_connections = broken_connections;
                         let _ = references_tx.send(refs);
                     }
                 });
@@ -144,20 +156,8 @@ async fn run(
             app.state.queries.push(args_query);
         }
         //TODO move out of loop and set in state
-        let valid_agol_item_ids = agol::extract_item_ids(&app.agol.cached_agol_content);
 
-        if let Ok(mut refs) = references_rx.try_recv() {
-            let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
-
-            for (k, v) in &refs.lookup {
-                if !valid_agol_item_ids.contains(&k.as_str()) {
-                    for j in v {
-                        broken_connections.insert(j.clone());
-                    }
-                }
-            }
-            refs.broken_connections = broken_connections;
-
+        if let Ok(refs) = references_rx.try_recv() {
             app.agol.references = refs;
             app.state.references_loading = false;
         }
