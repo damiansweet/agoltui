@@ -15,7 +15,6 @@ use crate::models::{Agol, Config};
 mod action;
 mod agol_data;
 mod errors;
-mod helix_keybinds;
 mod models;
 mod ui;
 mod utils;
@@ -69,8 +68,9 @@ async fn main() -> color_eyre::Result<()> {
                 let cli_args = cli_args.clone();
 
                 tokio::spawn(async move {
-                    let query = utils::build_cli_args_query(cli_args, cli_filter).await;
-                    let _ = cli_args_tx.send(query);
+                    if let Some(query) = utils::build_cli_args_query(cli_args, cli_filter).await {
+                        let _ = cli_args_tx.send(query);
+                    }
                 });
             }
 
@@ -155,7 +155,6 @@ async fn run(
         if let Ok(args_query) = cli_args_rx.try_recv() {
             app.state.queries.push(args_query);
         }
-        //TODO move out of loop and set in state
 
         if let Ok(refs) = references_rx.try_recv() {
             app.agol.references = refs;
@@ -171,7 +170,7 @@ async fn run(
             continue;
         }
         if let Event::Key(key) = event::read()? {
-            let action = action::handle_key(&app.state, key);
+            let action = action::handle_key(&app.state, key.code);
             action::handle_action(app, action).await;
         }
     }

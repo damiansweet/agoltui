@@ -33,10 +33,6 @@ pub fn get_layer_references(id: &str, app: &App) -> HashSet<ArcGISSearchResults>
     }
 }
 
-pub fn clear_highlight(app: &mut App) {
-    app.state.user_input.highlight_range = None;
-}
-
 pub fn clear_user_input(app_state: &mut State) {
     app_state.user_input.input.clear();
 }
@@ -97,16 +93,21 @@ pub fn filter_cli_args<'a>(
     }
 }
 
-pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> String {
+pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> Option<String> {
     match filter_type {
-        CliArgsFilter::Both => format!(
+        CliArgsFilter::Both => Some(format!(
             "Owner/Username == '{}' &&  Title ILIKE '{}'",
             args.email.unwrap_or_default(),
             args.search.unwrap_or_default()
-        ),
-        CliArgsFilter::Email => format!("Owner/Username == '{}'", args.email.unwrap_or_default()),
-        CliArgsFilter::SearchTerm => format!("Title ILIKE '{}'", args.search.unwrap_or_default()),
-        CliArgsFilter::None => String::default(),
+        )),
+        CliArgsFilter::Email => Some(format!(
+            "Owner/Username == '{}'",
+            args.email.unwrap_or_default()
+        )),
+        CliArgsFilter::SearchTerm => {
+            Some(format!("Title ILIKE '{}'", args.search.unwrap_or_default()))
+        }
+        CliArgsFilter::None => None,
     }
 }
 

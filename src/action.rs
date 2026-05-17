@@ -1,12 +1,11 @@
-use crate::helix_keybinds::{helix_next_word, helix_previous_word};
 use crate::models::{App, Errors, FocusedWidget, InputMode, SearchType, State};
 use crate::utils::{
-    clear_highlight, clear_user_input, disable_search_popup, filter_layer_no_references,
-    get_layer_references, reset_user_input_char_index,
+    clear_user_input, disable_search_popup, filter_layer_no_references, get_layer_references,
+    reset_user_input_char_index,
 };
 
 use agol::models::ArcGISSearchResults;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyCode;
 
 pub enum Action {
     MoveSelectionDown,
@@ -28,9 +27,6 @@ pub enum Action {
     UserInputEnterChar(char),
     UserInputDeleteChar,
     UserInputSubmitQuery,
-    UserInputFlipInputMode,
-    HelixPreviousWord,
-    HelixNextWord,
     FocusBrokenConnections,
     GoBack,
 }
@@ -186,8 +182,8 @@ fn set_search_type(app: &mut App, search_type: SearchType) {
 }
 
 fn launch_search(app: &mut App) {
-    //TODO this needs to reset user_input_position as well and cursor
     clear_user_input(&mut app.state);
+    reset_user_input_char_index(&mut app.state);
     app.state.search_popup = true;
     app.state.input_mode = InputMode::Editing;
 }
@@ -211,18 +207,13 @@ async fn reset_filters(app: &mut App<'_>) {
     clear_user_input(&mut app.state);
     app.state.queries.clear();
     app.state.errors = None;
-
-    // dbg!(&state);
+    app.state.input_mode = InputMode::Normal;
 }
 
-//TODO for broken connections list what the item title is that is broken not just web map/app
-//
-//
-//
-pub fn handle_key(state: &State, key: KeyEvent) -> Action {
+pub fn handle_key(state: &State, key: KeyCode) -> Action {
     match state.input_mode {
-        InputMode::Normal => match (key.modifiers, key.code) {
-            (KeyModifiers::NONE, KeyCode::Char('j')) | (KeyModifiers::NONE, KeyCode::Down) => {
+        InputMode::Normal => match key {
+            KeyCode::Char('j') | KeyCode::Down => {
                 if state.focused_widget == FocusedWidget::TopList {
                     Action::MoveSelectionDown
                 } else if state.focused_widget == FocusedWidget::BottomTable {
@@ -231,7 +222,7 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
                     Action::MoveBrokenConnectionDown
                 }
             }
-            (KeyModifiers::NONE, KeyCode::Char('k')) | (KeyModifiers::NONE, KeyCode::Up) => {
+            KeyCode::Char('k') | KeyCode::Up => {
                 if state.focused_widget == FocusedWidget::TopList {
                     Action::MoveSelectionUp
                 } else if state.focused_widget == FocusedWidget::BottomTable {
@@ -240,40 +231,30 @@ pub fn handle_key(state: &State, key: KeyEvent) -> Action {
                     Action::MoveBrokenConnectionUp
                 }
             }
-            (KeyModifiers::NONE, KeyCode::Enter) if state.search_popup => {
-                Action::UserInputSubmitQuery
-            }
-            (KeyModifiers::NONE, KeyCode::Char('0')) => Action::ZeroReferences,
-            //TODO if pressing s clear user input and then launch search
-            (KeyModifiers::NONE, KeyCode::Char('s')) | (KeyModifiers::NONE, KeyCode::Char('i')) => {
-                Action::SearchByKeyword
-            }
-            (KeyModifiers::NONE, KeyCode::Char('u')) => Action::ListUsers,
-            (KeyModifiers::NONE, KeyCode::Esc) => {
+            KeyCode::Enter if state.search_popup => Action::UserInputSubmitQuery,
+            KeyCode::Char('0') => Action::ZeroReferences,
+            KeyCode::Char('s') | KeyCode::Char('i') => Action::SearchByKeyword,
+            KeyCode::Char('u') => Action::ListUsers,
+            KeyCode::Esc => {
                 if state.focused_widget == FocusedWidget::BrokenConnections {
                     Action::GoBack
                 } else {
                     Action::Reset
                 }
             }
-            (KeyModifiers::NONE, KeyCode::Char('q')) => Action::Quit,
-            (KeyModifiers::NONE, KeyCode::Tab) => Action::SwitchFocus,
-            (KeyModifiers::NONE, KeyCode::Char('b')) => Action::HelixPreviousWord,
-            (KeyModifiers::SHIFT, KeyCode::Char('B')) => Action::FocusBrokenConnections,
-            (KeyModifiers::NONE, KeyCode::Char('w')) => Action::HelixNextWord,
+            KeyCode::Char('q') => Action::Quit,
+            KeyCode::Tab => Action::SwitchFocus,
+            KeyCode::Char('B') => Action::FocusBrokenConnections,
             _ => Action::NoOp,
         },
-        InputMode::Editing => match (key.modifiers, key.code) {
-            (KeyModifiers::NONE, KeyCode::F(1)) => Action::UserInputSearchTerm,
-            (KeyModifiers::NONE, KeyCode::F(2)) => Action::UserInputSearchUsername,
-            (KeyModifiers::NONE, KeyCode::F(3)) => Action::UserInputSearchId,
-            (KeyModifiers::NONE, KeyCode::Char(typed_char))
-            | (KeyModifiers::SHIFT, KeyCode::Char(typed_char)) => {
-                Action::UserInputEnterChar(typed_char)
-            }
-            (KeyModifiers::NONE, KeyCode::Backspace) => Action::UserInputDeleteChar,
-            (KeyModifiers::NONE, KeyCode::Esc) => Action::UserInputFlipInputMode,
-            (KeyModifiers::NONE, KeyCode::Enter) => Action::UserInputSubmitQuery,
+        InputMode::Editing => match key {
+            KeyCode::F(1) => Action::UserInputSearchTerm,
+            KeyCode::F(2) => Action::UserInputSearchUsername,
+            KeyCode::F(3) => Action::UserInputSearchId,
+            KeyCode::Char(typed_char) => Action::UserInputEnterChar(typed_char),
+            KeyCode::Backspace => Action::UserInputDeleteChar,
+            KeyCode::Esc => Action::Reset,
+            KeyCode::Enter => Action::UserInputSubmitQuery,
             _ => Action::NoOp,
         },
     }
@@ -379,15 +360,9 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
         }
         Action::UserInputEnterChar(char) => {
             enter_char(app, char);
-            clear_highlight(app);
         }
         Action::UserInputDeleteChar => {
             delete_char(app);
-            clear_highlight(app);
-        }
-        Action::UserInputFlipInputMode => {
-            flip_input_mode(app);
-            clear_highlight(app);
         }
         Action::UserInputSearchTerm
             if app.state.search_type == SearchType::Owner
@@ -410,17 +385,14 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
         Action::UserInputSubmitQuery if app.state.search_type == SearchType::Title => {
             search_by_keyword(app);
             flip_input_mode(app);
-            clear_highlight(app);
         }
         Action::UserInputSubmitQuery if app.state.search_type == SearchType::Owner => {
             search_by_username(app);
             flip_input_mode(app);
-            clear_highlight(app);
         }
         Action::UserInputSubmitQuery if app.state.search_type == SearchType::Id => {
             search_by_item_id(app);
             flip_input_mode(app);
-            clear_highlight(app);
         }
 
         Action::ListUsers => {
@@ -439,12 +411,6 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
         }
         Action::Quit => {
             app.state.running = false;
-        }
-        Action::HelixPreviousWord => {
-            helix_previous_word(app);
-        }
-        Action::HelixNextWord => {
-            helix_next_word(app);
         }
         Action::NoOp => {}
         _ => {}

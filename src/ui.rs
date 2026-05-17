@@ -1,9 +1,7 @@
-use agol::models::ArcGISSearchResults;
-
-use crate::helix_keybinds::build_input_spans;
 use crate::models::{Agol, App, Config, Errors, FocusedWidget, InputMode, SearchType};
 use crate::utils;
 use crate::widgets::{invalid_user_input_widget, no_access_token_error_widget};
+use agol::models::ArcGISSearchResults;
 use ratatui::style::{Color, Style};
 use ratatui::{
     Frame,
@@ -53,19 +51,18 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     ])
                     .split(frame.area());
 
-                let input_spans = build_input_spans(
-                    &app.state.user_input.input,
-                    app.state.user_input.character_index,
-                    app.state.user_input.highlight_range,
-                    &app.state.input_mode,
-                );
+                // let input_spans = build_input_spans(
+                //     &app.state.user_input.input,
+                //     app.state.user_input.character_index,
+                //     &app.state.input_mode,
+                // );
 
                 let user_input = match app.state.search_type {
-                    SearchType::Title => Paragraph::new(input_spans.clone())
+                    SearchType::Title => Paragraph::new(app.state.user_input.input.clone())
                         .block(Block::bordered().title("Search by Keyword")),
-                    SearchType::Owner => Paragraph::new(input_spans.clone())
+                    SearchType::Owner => Paragraph::new(app.state.user_input.input.clone())
                         .block(Block::bordered().title("Search by Email")),
-                    SearchType::Id => Paragraph::new(input_spans.clone())
+                    SearchType::Id => Paragraph::new(app.state.user_input.input.clone())
                         .block(Block::bordered().title("Search by Item Id")),
                 };
 

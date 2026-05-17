@@ -59,7 +59,6 @@ pub enum FocusedWidget {
 pub struct UserInput {
     pub input: String,
     pub character_index: usize,
-    pub highlight_range: Option<(usize, usize)>,
 }
 
 #[derive(Debug, Default)]
