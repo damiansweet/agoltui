@@ -94,6 +94,10 @@ pub struct Args {
     /// Search term to filter results
     #[arg(short, long)]
     pub search: Option<String>,
+
+    /// ArcGIS Online item id
+    #[arg(short, long)]
+    pub item_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,5 +105,6 @@ pub enum CliArgsFilter {
     Email,
     SearchTerm,
     Both,
+    ItemId,
     None,
 }

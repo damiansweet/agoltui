@@ -89,6 +89,10 @@ pub fn filter_cli_args<'a>(
             .iter()
             .filter(|i| i.title.contains(args.search.as_ref().unwrap()))
             .collect(),
+        CliArgsFilter::ItemId => agol_items
+            .iter()
+            .filter(|i| i.id == *args.item_id.as_ref().unwrap())
+            .collect(),
         CliArgsFilter::None => agol_items.iter().collect(),
     }
 }
@@ -107,6 +111,7 @@ pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> Opt
         CliArgsFilter::SearchTerm => {
             Some(format!("Title ILIKE '{}'", args.search.unwrap_or_default()))
         }
+        CliArgsFilter::ItemId => Some(format!("Item ID: '{}'", args.item_id.unwrap_or_default())),
         CliArgsFilter::None => None,
     }
 }
@@ -117,20 +122,27 @@ pub fn check_cli_args() -> (Args, CliArgsFilter) {
         Args {
             email: Some(_),
             search: Some(_),
+            item_id: None,
         } => CliArgsFilter::Both,
 
         Args {
             email: Some(_),
             search: None,
+            item_id: None,
         } => CliArgsFilter::Email,
         Args {
             email: None,
             search: Some(_),
+            item_id: None,
         } => CliArgsFilter::SearchTerm,
         Args {
             email: None,
             search: None,
+            item_id: None,
         } => CliArgsFilter::None,
+        Args {
+            item_id: Some(_), ..
+        } => CliArgsFilter::ItemId,
     };
 
     (cli_args, cli_filter)
