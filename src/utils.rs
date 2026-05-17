@@ -40,6 +40,9 @@ pub fn clear_highlight(app: &mut App) {
 pub fn clear_user_input(app_state: &mut State) {
     app_state.user_input.input.clear();
 }
+pub fn reset_user_input_char_index(app_state: &mut State) {
+    app_state.user_input.character_index = 0;
+}
 
 pub fn disable_search_popup(app_state: &mut State) {
     app_state.search_popup = false;

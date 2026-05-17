@@ -2,7 +2,7 @@ use crate::helix_keybinds::{helix_next_word, helix_previous_word};
 use crate::models::{App, Errors, FocusedWidget, InputMode, SearchType, State};
 use crate::utils::{
     clear_highlight, clear_user_input, disable_search_popup, filter_layer_no_references,
-    get_layer_references,
+    get_layer_references, reset_user_input_char_index,
 };
 
 use agol::models::ArcGISSearchResults;
@@ -186,6 +186,8 @@ fn set_search_type(app: &mut App, search_type: SearchType) {
 }
 
 fn launch_search(app: &mut App) {
+    //TODO this needs to reset user_input_position as well and cursor
+    clear_user_input(&mut app.state);
     app.state.search_popup = true;
     app.state.input_mode = InputMode::Editing;
 }
@@ -203,10 +205,10 @@ fn all_usernames(app: &mut App) {
 async fn reset_filters(app: &mut App<'_>) {
     app.agol.agol_content = app.agol.cached_agol_content.to_vec();
     app.state.agol_content_widget_state.select(Some(0));
-    app.state.user_input.character_index = 0;
+    reset_user_input_char_index(&mut app.state);
     app.state.search_popup = false;
     app.state.items_per_username.clear();
-    app.state.user_input.input.clear();
+    clear_user_input(&mut app.state);
     app.state.queries.clear();
     app.state.errors = None;
 
