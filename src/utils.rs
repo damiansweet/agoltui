@@ -45,7 +45,7 @@ pub fn disable_search_popup(app_state: &mut State) {
 }
 
 pub fn filter_usernames_by_user_input<'a>(
-    app_state: &mut State,
+    app_state: &State,
     users: &'a [Users],
 ) -> Vec<ListItem<'a>> {
     users
@@ -56,6 +56,20 @@ pub fn filter_usernames_by_user_input<'a>(
                 .contains(&app_state.user_input.input.to_lowercase())
         })
         .map(|u| ListItem::new(u.username.as_str()))
+        .collect()
+}
+pub fn filter_title_by_user_input<'a>(
+    app_state: &State,
+    agol_items: &'a Vec<&ArcGISSearchResults>,
+) -> Vec<ListItem<'a>> {
+    agol_items
+        .iter()
+        .filter(|a| {
+            a.title
+                .to_lowercase()
+                .contains(&app_state.user_input.input.to_lowercase())
+        })
+        .map(|a| ListItem::new(a.title.as_str()))
         .collect()
 }
 

@@ -59,14 +59,17 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 let (user_input_widget, valid_options_widget) = match app.state.search_type {
                     SearchType::Title => (
                         search_by_user_input_widget(&app.state, "Keyword"),
-                        List::from_iter(vec!["PLACEHOLDER"])
-                            .style(Style::new().italic())
-                            .block(Block::bordered().title("Available search options")),
+                        List::from_iter(utils::filter_title_by_user_input(
+                            &app.state,
+                            &app.agol.agol_content,
+                        ))
+                        .style(Style::new().italic())
+                        .block(Block::bordered().title("Available search options")),
                     ),
                     SearchType::Owner => (
                         search_by_user_input_widget(&app.state, "Username"),
                         List::from_iter(utils::filter_usernames_by_user_input(
-                            &mut app.state,
+                            &app.state,
                             &app.agol.users,
                         ))
                         .style(Style::new().italic())
