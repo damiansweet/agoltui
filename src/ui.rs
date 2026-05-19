@@ -53,6 +53,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
                 //TODO split this into multiple widgets
                 // TODO have valid users list only show when searching by email
+                // set layouts in below match
                 let user_input = match app.state.search_type {
                     SearchType::Title => Paragraph::new(app.state.user_input.input.clone())
                         .block(Block::bordered().title("Search by Keyword")),
