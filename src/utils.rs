@@ -14,8 +14,10 @@ pub fn filter_layer_no_references(state: &mut App) {
         }
     }
 
-    let existing_state = state.agol.agol_content.clone();
-    state.agol.agol_content = existing_state
+    // combines queries if one already exists
+    state.agol.agol_content = state
+        .agol
+        .agol_content
         .iter()
         .filter(|c| {
             no_reference_ids.contains(&&c.id.clone()) && c.item_type != "Service Definition"

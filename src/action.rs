@@ -92,7 +92,6 @@ fn clamp_cursor(app: &App, new_cursor_pos: usize) -> usize {
 }
 
 fn search_by_username(app: &mut App) {
-    let query = &app.state.user_input.input.clone();
     let filtered_list: Vec<&ArcGISSearchResults> = app
         .agol
         .agol_content
@@ -107,11 +106,12 @@ fn search_by_username(app: &mut App) {
         .collect();
 
     app.agol.agol_content = filtered_list;
+    app.state.queries.push(format!(
+        "Owner/Username ILIKE '{}'",
+        &app.state.user_input.input
+    ));
     disable_search_popup(&mut app.state);
     clear_user_input(&mut app.state);
-    app.state
-        .queries
-        .push(format!("Owner/Username ILIKE '{query}'"));
 }
 
 fn search_by_keyword(app: &mut App) {
@@ -193,6 +193,9 @@ fn set_search_type(app: &mut App, search_type: SearchType) {
 
 fn launch_search(app: &mut App) {
     clear_user_input(&mut app.state);
+    //TODO create util function for resetting from cached
+    app.agol.agol_content = app.agol.cached_agol_content.to_vec();
+    app.state.queries.clear();
     reset_user_input_char_index(&mut app.state);
     app.state.search_popup = true;
     app.state.input_mode = InputMode::Editing;
