@@ -32,6 +32,9 @@ async fn main() -> color_eyre::Result<()> {
     let mut app = ui::init_state(Agol::default(), Config::default());
     let mut agol_items: Vec<ArcGISSearchResults> = vec![];
 
+    //TODO check .cargo/config.toml for env vars Config
+    // TODO set .cargo/config.toml env
+    // TODO launch setup
     let client = Arc::new(reqwest::Client::new());
     match agol::fetch_oauth2_agol_token(&client).await {
         Ok(access_token) => {
