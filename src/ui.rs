@@ -1,6 +1,8 @@
 use crate::models::{Agol, App, Config, Errors, FocusedWidget, InputMode, SearchType};
 use crate::utils;
-use crate::widgets::{invalid_user_input_widget, no_access_token_error_widget};
+use crate::widgets::{
+    invalid_user_input_widget, no_access_token_error_widget, search_by_user_input_widget,
+};
 use agol::models::ArcGISSearchResults;
 use ratatui::style::{Color, Style};
 use ratatui::{
@@ -54,31 +56,42 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 //TODO split this into multiple widgets
                 // TODO have valid users list only show when searching by email
                 // set layouts in below match
-                let user_input = match app.state.search_type {
-                    SearchType::Title => Paragraph::new(app.state.user_input.input.clone())
-                        .block(Block::bordered().title("Search by Keyword")),
-                    SearchType::Owner => Paragraph::new(app.state.user_input.input.clone())
-                        .block(Block::bordered().title("Search by Email")),
-                    SearchType::Id => Paragraph::new(app.state.user_input.input.clone())
-                        .block(Block::bordered().title("Search by Item Id")),
+                let (user_input_widget, valid_options_widget) = match app.state.search_type {
+                    SearchType::Title => (
+                        search_by_user_input_widget(&app.state, "Keyword"),
+                        List::from_iter(vec!["PLACEHOLDER"])
+                            .style(Style::new().italic())
+                            .block(Block::bordered().title("Available search options")),
+                    ),
+                    SearchType::Owner => (
+                        search_by_user_input_widget(&app.state, "Username"),
+                        List::from_iter(utils::filter_usernames_by_user_input(
+                            &mut app.state,
+                            &app.agol.users,
+                        ))
+                        .style(Style::new().italic())
+                        .block(Block::bordered().title("Available search options")),
+                    ),
+                    SearchType::Id => (
+                        search_by_user_input_widget(&app.state, "Item Id"),
+                        List::from_iter(vec!["PlACEHOLDER"])
+                            .style(Style::new().italic())
+                            .block(Block::bordered().title("Available search options")),
+                    ),
                 };
 
                 let key_binds_widget = Paragraph::new(
-                    "Search by Keyword: <F1>\nSearch by Email: <F2>\nSearch by Item Id: <F3>",
+                    "<F1> Search by Keyword | <F2> Search by Username | <F3> Search by Item Id",
                 )
-                .style(Style::new().light_blue())
+                .style(Style::new().light_yellow())
                 .block(Block::bordered().title("KeyBinds"));
 
-                //TODO move this to app state
-                let valid_users_widget = List::from_iter(utils::filter_usernames_by_user_input(
-                    &mut app.state,
-                    &app.agol.users,
-                ));
+                //TODO move eligile search resutls to app state
 
                 let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());
-                frame.render_widget(user_input, layout[0]);
-                frame.render_widget(valid_users_widget, layout[1]);
+                frame.render_widget(user_input_widget, layout[0]);
+                frame.render_widget(valid_options_widget, layout[1]);
                 frame.render_widget(key_binds_widget, layout[2]);
 
                 if matches!(app.state.input_mode, InputMode::Editing) {
@@ -198,7 +211,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     let queries = &app.state.queries.join(" && ");
 
                     let layer_info_text = format!(
-                        "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<f> filter by username | <0> zero references\nCurrent Query: {queries}"
+                        "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<s> Search | <0> zero references\nCurrent Query: {queries}"
                     );
 
                     let widget_center = if app.state.references_loading {
