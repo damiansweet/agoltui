@@ -92,12 +92,17 @@ fn clamp_cursor(app: &App, new_cursor_pos: usize) -> usize {
 }
 
 fn search_by_username(app: &mut App) {
-    let username = app.state.user_input.input.clone();
+    let query = &app.state.user_input.input.clone();
     let filtered_list: Vec<&ArcGISSearchResults> = app
         .agol
         .agol_content
         .iter()
-        .filter(|agol_item| agol_item.owner == username)
+        .filter(|agol_item| {
+            agol_item
+                .owner
+                .to_lowercase()
+                .contains(&app.state.user_input.input.to_lowercase())
+        })
         .copied()
         .collect();
 
@@ -106,7 +111,7 @@ fn search_by_username(app: &mut App) {
     clear_user_input(&mut app.state);
     app.state
         .queries
-        .push(format!("Owner/Username == '{username}'"));
+        .push(format!("Owner/Username ILIKE '{query}'"));
 }
 
 fn search_by_keyword(app: &mut App) {
@@ -148,13 +153,17 @@ fn search_by_item_id(app: &mut App) {
             .agol
             .agol_content
             .iter()
-            .filter(|agol_item| agol_item.id == *query)
+            .filter(|agol_item| agol_item.id.contains(query))
             .cloned()
             .collect();
 
         app.state.search_popup = false;
-        if !app.state.queries.contains(&format!("id == '{query}'")) {
-            app.state.queries.push(format!("id == '{query}'"))
+        if !app
+            .state
+            .queries
+            .contains(&format!("Item Id ILIKE '{query}'"))
+        {
+            app.state.queries.push(format!("Item Id LIKE '{query}'"))
         };
         app.agol.agol_content = search_results;
         if app.agol.agol_content.is_empty() {

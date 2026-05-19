@@ -77,14 +77,17 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     ),
                     SearchType::Id => (
                         search_by_user_input_widget(&app.state, "Item Id"),
-                        List::from_iter(vec!["PlACEHOLDER"])
-                            .style(Style::new().italic())
-                            .block(Block::bordered().title("Available search options")),
+                        List::from_iter(utils::filter_id_by_user_input(
+                            &app.state,
+                            &app.agol.agol_content,
+                        ))
+                        .style(Style::new().italic())
+                        .block(Block::bordered().title("Available search options")),
                     ),
                 };
 
                 let key_binds_widget = Paragraph::new(
-                    "<F1> Search by Keyword | <F2> Search by Username | <F3> Search by Item Id",
+                    "<F1> Search by Keyword | <F2> Search by Username | <F3> Search by Item Id, | <ESC> Reset Filter"
                 )
                 .style(Style::new().light_yellow())
                 .block(Block::bordered().title("KeyBinds"));

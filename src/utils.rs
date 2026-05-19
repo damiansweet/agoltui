@@ -58,9 +58,10 @@ pub fn filter_usernames_by_user_input<'a>(
         .map(|u| ListItem::new(u.username.as_str()))
         .collect()
 }
+
 pub fn filter_title_by_user_input<'a>(
     app_state: &State,
-    agol_items: &'a Vec<&ArcGISSearchResults>,
+    agol_items: &Vec<&'a ArcGISSearchResults>,
 ) -> Vec<ListItem<'a>> {
     agol_items
         .iter()
@@ -70,6 +71,17 @@ pub fn filter_title_by_user_input<'a>(
                 .contains(&app_state.user_input.input.to_lowercase())
         })
         .map(|a| ListItem::new(a.title.as_str()))
+        .collect()
+}
+
+pub fn filter_id_by_user_input<'a>(
+    app_state: &State,
+    agol_items: &Vec<&'a ArcGISSearchResults>,
+) -> Vec<ListItem<'a>> {
+    agol_items
+        .iter()
+        .filter(|a| a.id.contains(&app_state.user_input.input))
+        .map(|a| ListItem::new(format!("{} | {}", a.id.as_str(), a.title.as_str())))
         .collect()
 }
 
@@ -102,21 +114,33 @@ pub fn filter_cli_args<'a>(
         CliArgsFilter::Both => agol_items
             .iter()
             .filter(|i| {
-                i.owner == *args.email.as_ref().unwrap()
-                    && i.title.contains(args.search.as_ref().unwrap())
+                i.owner
+                    .to_lowercase()
+                    .contains(&args.email.as_ref().unwrap().to_lowercase())
+                    && i.title
+                        .to_lowercase()
+                        .contains(&args.search.as_ref().unwrap().to_lowercase())
             })
             .collect(),
         CliArgsFilter::Email => agol_items
             .iter()
-            .filter(|i| i.owner == *args.email.as_ref().unwrap())
+            .filter(|i| {
+                i.owner
+                    .to_lowercase()
+                    .contains(&args.email.as_ref().unwrap().to_lowercase())
+            })
             .collect(),
         CliArgsFilter::SearchTerm => agol_items
             .iter()
-            .filter(|i| i.title.contains(args.search.as_ref().unwrap()))
+            .filter(|i| {
+                i.title
+                    .to_lowercase()
+                    .contains(&args.search.as_ref().unwrap().to_lowercase())
+            })
             .collect(),
         CliArgsFilter::ItemId => agol_items
             .iter()
-            .filter(|i| i.id == *args.item_id.as_ref().unwrap())
+            .filter(|i| i.id.contains(args.item_id.as_ref().unwrap()))
             .collect(),
         CliArgsFilter::None => agol_items.iter().collect(),
     }
@@ -130,7 +154,7 @@ pub async fn build_cli_args_query(args: Args, filter_type: CliArgsFilter) -> Opt
             args.search.unwrap_or_default()
         )),
         CliArgsFilter::Email => Some(format!(
-            "Owner/Username == '{}'",
+            "Owner/Username ILIKE '{}'",
             args.email.unwrap_or_default()
         )),
         CliArgsFilter::SearchTerm => {
