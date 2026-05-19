@@ -3,7 +3,7 @@ use crate::models::{
 };
 use agol::models::{ArcGISSearchResults, Users};
 use clap::Parser;
-use ratatui::widgets::{ListState, TableState};
+use ratatui::widgets::{ListItem, ListState, TableState};
 use std::collections::{HashMap, HashSet};
 
 pub fn filter_layer_no_references(state: &mut App) {
@@ -44,8 +44,19 @@ pub fn disable_search_popup(app_state: &mut State) {
     app_state.search_popup = false;
 }
 
-pub fn extract_usernames(users: &[Users]) -> Vec<&str> {
-    users.iter().map(|u| u.username.as_str()).collect()
+pub fn filter_usernames_by_user_input<'a>(
+    app_state: &mut State,
+    users: &'a [Users],
+) -> Vec<ListItem<'a>> {
+    users
+        .iter()
+        .filter(|u| {
+            u.username
+                .to_lowercase()
+                .contains(&app_state.user_input.input.to_lowercase())
+        })
+        .map(|u| ListItem::new(u.username.as_str()))
+        .collect()
 }
 
 pub fn default_app_state() -> State {

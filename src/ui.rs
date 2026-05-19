@@ -45,18 +45,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 let layout = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(vec![
-                        Constraint::Percentage(40),
-                        Constraint::Percentage(40),
-                        Constraint::Percentage(20),
+                        Constraint::Percentage(25),
+                        Constraint::Percentage(75),
+                        Constraint::Percentage(5),
                     ])
                     .split(frame.area());
 
-                // let input_spans = build_input_spans(
-                //     &app.state.user_input.input,
-                //     app.state.user_input.character_index,
-                //     &app.state.input_mode,
-                // );
-
+                //TODO split this into multiple widgets
+                // TODO have valid users list only show when searching by email
                 let user_input = match app.state.search_type {
                     SearchType::Title => Paragraph::new(app.state.user_input.input.clone())
                         .block(Block::bordered().title("Search by Keyword")),
@@ -72,7 +68,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 .style(Style::new().light_blue())
                 .block(Block::bordered().title("KeyBinds"));
 
-                let valid_users_widget = List::from_iter(utils::extract_usernames(&app.agol.users));
+                //TODO move this to app state
+                let valid_users_widget = List::from_iter(utils::filter_usernames_by_user_input(
+                    &mut app.state,
+                    &app.agol.users,
+                ));
 
                 let input_area = frame.area();
                 frame.render_widget(Clear, frame.area());

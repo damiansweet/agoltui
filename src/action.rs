@@ -54,6 +54,7 @@ fn enter_char(app: &mut App, char: char) {
     let index = byte_index(app);
     app.state.user_input.input.insert(index, char);
     move_search_cursor_right(app);
+    //TODO filter user list by user_input
 }
 
 fn byte_index(app: &App) -> usize {
