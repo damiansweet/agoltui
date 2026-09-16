@@ -68,6 +68,35 @@ mod tests {
     use agol::models::ArcGISSearchResults;
     use ratatui::{Terminal, backend::TestBackend};
 
+    fn render_paragraph(widget: Paragraph<'static>) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+        terminal
+            .draw(|frame| frame.render_widget(widget, frame.area()))
+            .unwrap();
+        terminal.backend().to_string()
+    }
+
+    #[test]
+    fn error_widgets_explain_the_problem() {
+        let token_error = render_paragraph(no_access_token_error_widget());
+        assert!(token_error.contains("Invalid Access Token"));
+        assert!(token_error.contains("Press 'q' to quit"));
+
+        let input_error = render_paragraph(invalid_user_input_widget());
+        assert!(input_error.contains("Query must be between 3-50 characters"));
+    }
+
+    #[test]
+    fn search_widget_displays_title_and_current_input() {
+        let mut state = crate::utils::default_app_state();
+        state.user_input.input = "roads".to_string();
+
+        let screen = render_paragraph(search_by_user_input_widget(&state, "Keyword"));
+
+        assert!(screen.contains("Search by Keyword"));
+        assert!(screen.contains("roads"));
+    }
+
     #[test]
     fn structure_mismatch_widget_displays_item_information() {
         let issue = AgolItemIssue {

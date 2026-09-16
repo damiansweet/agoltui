@@ -202,8 +202,181 @@ pub fn check_cli_args() -> (Args, CliArgsFilter) {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // #[test]
-    // fn test_helix_previous_word() {
-    // }
+    use super::*;
+    use crate::models::{Agol, Config};
+    use agol::models::ArcGISReferences;
+
+    fn item(id: &str, title: &str, owner: &str, item_type: &str) -> ArcGISSearchResults {
+        ArcGISSearchResults {
+            id: id.to_string(),
+            owner: owner.to_string(),
+            org_id: "org-id".to_string(),
+            created: 0,
+            is_org_item: true,
+            modified: 0,
+            guid: None,
+            name: None,
+            title: title.to_string(),
+            item_type: item_type.to_string(),
+            description: None,
+            tags: Vec::new(),
+            snippet: None,
+            url: None,
+            access: "private".to_string(),
+        }
+    }
+
+    #[test]
+    fn default_state_is_ready_for_initial_loading() {
+        let state = default_app_state();
+
+        assert!(state.running);
+        assert!(state.references_loading);
+        assert!(state.users_loading);
+        assert!(!state.search_popup);
+        assert_eq!(state.focused_widget, FocusedWidget::TopList);
+        assert_eq!(state.agol_content_widget_state.selected(), Some(0));
+        assert_eq!(state.reference_table_state.selected(), Some(0));
+    }
+
+    #[test]
+    fn cli_filters_are_case_insensitive_and_composable() {
+        let items = [
+            item("roads-1", "Road Closures", "Alice", "Web Map"),
+            item("parks-2", "City Parks", "Bob", "Web Map"),
+        ];
+
+        let by_owner = filter_cli_args(
+            &items,
+            &Args {
+                email: Some("ALICE".to_string()),
+                ..Args::default()
+            },
+            &CliArgsFilter::Email,
+        );
+        assert_eq!(
+            by_owner
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["roads-1"]
+        );
+
+        let by_both = filter_cli_args(
+            &items,
+            &Args {
+                email: Some("alice".to_string()),
+                search: Some("ROAD".to_string()),
+                item_id: None,
+            },
+            &CliArgsFilter::Both,
+        );
+        assert_eq!(by_both.len(), 1);
+
+        let by_id = filter_cli_args(
+            &items,
+            &Args {
+                item_id: Some("parks".to_string()),
+                ..Args::default()
+            },
+            &CliArgsFilter::ItemId,
+        );
+        assert_eq!(by_id[0].title, "City Parks");
+    }
+
+    #[test]
+    fn no_reference_filter_excludes_service_definitions() {
+        let items = [
+            item("empty", "Unused layer", "alice", "Feature Service"),
+            item("used", "Used layer", "alice", "Feature Service"),
+            item(
+                "definition",
+                "Publish source",
+                "alice",
+                "Service Definition",
+            ),
+        ];
+        let content: Vec<_> = items.iter().collect();
+        let mut lookup = HashMap::new();
+        lookup.insert("empty".to_string(), HashSet::new());
+        lookup.insert("used".to_string(), HashSet::from([items[0].clone()]));
+        lookup.insert("definition".to_string(), HashSet::new());
+        let mut app = App {
+            agol: Agol {
+                agol_content: content.clone(),
+                cached_agol_content: content,
+                references: ArcGISReferences {
+                    lookup,
+                    ..ArcGISReferences::default()
+                },
+                ..Agol::default()
+            },
+            config: Config::default(),
+            state: default_app_state(),
+        };
+
+        filter_layer_no_references(&mut app);
+
+        assert_eq!(app.agol.agol_content.len(), 1);
+        assert_eq!(app.agol.agol_content[0].id, "empty");
+    }
+
+    #[test]
+    fn interactive_option_filters_match_partial_input() {
+        let items = [
+            item("roads-1", "Road Closures", "alice", "Web Map"),
+            item("parks-2", "City Parks", "bob", "Web Map"),
+        ];
+        let refs: Vec<_> = items.iter().collect();
+        let mut state = default_app_state();
+        state.user_input.input = "ROAD".to_string();
+        assert_eq!(filter_title_by_user_input(&state, &refs).len(), 1);
+
+        state.user_input.input = "parks".to_string();
+        assert_eq!(filter_id_by_user_input(&state, &refs).len(), 1);
+
+        let users = [
+            Users {
+                username: "alice.admin".to_string(),
+                ..Users::default()
+            },
+            Users {
+                username: "bob.editor".to_string(),
+                ..Users::default()
+            },
+        ];
+        state.user_input.input = "ADMIN".to_string();
+        assert_eq!(filter_usernames_by_user_input(&state, &users).len(), 1);
+    }
+
+    #[tokio::test]
+    async fn cli_query_text_covers_each_filter_type() {
+        let email = Args {
+            email: Some("alice".to_string()),
+            ..Args::default()
+        };
+        assert_eq!(
+            build_cli_args_query(email, CliArgsFilter::Email)
+                .await
+                .as_deref(),
+            Some("Owner/Username ILIKE 'alice'")
+        );
+
+        let search = Args {
+            search: Some("roads".to_string()),
+            ..Args::default()
+        };
+        assert_eq!(
+            build_cli_args_query(search, CliArgsFilter::SearchTerm)
+                .await
+                .as_deref(),
+            Some("Title ILIKE 'roads'")
+        );
+
+        assert!(
+            build_cli_args_query(Args::default(), CliArgsFilter::None)
+                .await
+                .is_none()
+        );
+    }
 }

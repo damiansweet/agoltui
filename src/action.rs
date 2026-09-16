@@ -463,3 +463,163 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Agol, Config};
+    use crate::utils::default_app_state;
+
+    fn item(id: &str, title: &str, owner: &str) -> ArcGISSearchResults {
+        ArcGISSearchResults {
+            id: id.to_string(),
+            owner: owner.to_string(),
+            org_id: "org-id".to_string(),
+            created: 0,
+            is_org_item: true,
+            modified: 0,
+            guid: None,
+            name: None,
+            title: title.to_string(),
+            item_type: "Web Map".to_string(),
+            description: None,
+            tags: Vec::new(),
+            snippet: None,
+            url: None,
+            access: "private".to_string(),
+        }
+    }
+
+    fn app(items: &[ArcGISSearchResults]) -> App<'_> {
+        let content: Vec<_> = items.iter().collect();
+        App {
+            agol: Agol {
+                agol_content: content.clone(),
+                cached_agol_content: content,
+                ..Agol::default()
+            },
+            config: Config::default(),
+            state: default_app_state(),
+        }
+    }
+
+    #[test]
+    fn selection_wraps_in_both_directions() {
+        assert_eq!(move_selection(Some(2), 3, 1), Some(0));
+        assert_eq!(move_selection(Some(0), 3, -1), Some(2));
+        assert_eq!(move_selection(None, 3, 1), Some(1));
+        assert_eq!(move_selection(Some(0), 0, 1), None);
+    }
+
+    #[test]
+    fn text_editing_uses_character_indices_for_unicode() {
+        let mut app = app(&[]);
+
+        enter_char(&mut app, 'é');
+        enter_char(&mut app, '🦀');
+        assert_eq!(app.state.user_input.input, "é🦀");
+        assert_eq!(app.state.user_input.character_index, 2);
+
+        delete_char(&mut app);
+        assert_eq!(app.state.user_input.input, "é");
+        assert_eq!(app.state.user_input.character_index, 1);
+    }
+
+    #[test]
+    fn normal_mode_keys_follow_the_focused_widget() {
+        let mut state = default_app_state();
+        assert!(matches!(
+            handle_key(&state, KeyCode::Down),
+            Action::MoveSelectionDown
+        ));
+
+        state.focused_widget = FocusedWidget::BottomTable;
+        assert!(matches!(
+            handle_key(&state, KeyCode::Char('k')),
+            Action::MoveReferenceUp
+        ));
+
+        state.focused_widget = FocusedWidget::BrokenConnections;
+        assert!(matches!(
+            handle_key(&state, KeyCode::Down),
+            Action::MoveBrokenConnectionDown
+        ));
+
+        state.focused_widget = FocusedWidget::StructureMismatches;
+        assert!(matches!(
+            handle_key(&state, KeyCode::Up),
+            Action::MoveStructureMismatchUp
+        ));
+        assert!(matches!(handle_key(&state, KeyCode::Esc), Action::GoBack));
+    }
+
+    #[test]
+    fn editing_mode_keys_create_input_actions() {
+        let mut state = default_app_state();
+        state.input_mode = InputMode::Editing;
+
+        assert!(matches!(
+            handle_key(&state, KeyCode::Char('x')),
+            Action::UserInputEnterChar('x')
+        ));
+        assert!(matches!(
+            handle_key(&state, KeyCode::Backspace),
+            Action::UserInputDeleteChar
+        ));
+        assert!(matches!(
+            handle_key(&state, KeyCode::F(2)),
+            Action::UserInputSearchUsername
+        ));
+    }
+
+    #[tokio::test]
+    async fn keyword_search_is_case_insensitive_and_selects_first_result() {
+        let items = [
+            item("1", "Road Closures", "alice"),
+            item("2", "Parks", "bob"),
+        ];
+        let mut app = app(&items);
+        app.state.input_mode = InputMode::Editing;
+        app.state.user_input.input = "ROAD".to_string();
+
+        handle_action(&mut app, Action::UserInputSubmitQuery).await;
+
+        assert_eq!(app.agol.agol_content.len(), 1);
+        assert_eq!(app.agol.agol_content[0].id, "1");
+        assert_eq!(app.state.agol_content_widget_state.selected(), Some(0));
+        assert_eq!(app.state.queries, ["Title ILIKE '%road%'"]);
+        assert!(matches!(app.state.input_mode, InputMode::Normal));
+    }
+
+    #[tokio::test]
+    async fn invalid_keyword_search_sets_error_without_filtering_content() {
+        let items = [item("1", "Road Closures", "alice")];
+        let mut app = app(&items);
+        app.state.input_mode = InputMode::Editing;
+        app.state.user_input.input = "ab".to_string();
+
+        handle_action(&mut app, Action::UserInputSubmitQuery).await;
+
+        assert_eq!(app.agol.agol_content.len(), 1);
+        assert!(matches!(app.state.errors, Some(Errors::InvalidUserInput)));
+    }
+
+    #[tokio::test]
+    async fn reset_restores_cached_content_and_normal_state() {
+        let items = [item("1", "Roads", "alice"), item("2", "Parks", "bob")];
+        let mut app = app(&items);
+        app.agol.agol_content.truncate(1);
+        app.state.search_popup = true;
+        app.state.input_mode = InputMode::Editing;
+        app.state.user_input.input = "query".to_string();
+        app.state.queries.push("filtered".to_string());
+
+        handle_action(&mut app, Action::Reset).await;
+
+        assert_eq!(app.agol.agol_content.len(), 2);
+        assert!(!app.state.search_popup);
+        assert!(matches!(app.state.input_mode, InputMode::Normal));
+        assert!(app.state.user_input.input.is_empty());
+        assert!(app.state.queries.is_empty());
+    }
+}
