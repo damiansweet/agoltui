@@ -92,6 +92,7 @@ pub fn default_app_state() -> State {
         agol_content_widget_state: ListState::default().with_selected(Some(0)),
         reference_table_state: TableState::default().with_selected(Some(0)),
         broken_connections_state: TableState::default().with_selected(Some(0)),
+        structure_mismatches_state: TableState::default().with_selected(Some(0)),
         username_state: TableState::default().with_selected(Some(0)),
         focused_widget: FocusedWidget::default(),
         user_input: UserInput::default(),

@@ -9,6 +9,7 @@ An ArcGIS Online admin cli tool written in rust. UI/widgets created using Ratatu
 - List all references per ArcGIS Online item
 - List content per user
 - Identify source data items that have zero references
+- Inspect AGOL items whose data does not match the expected structure
 - Search by Keyword, Username/Email, and Item Id
 - Vim navigation controls
 
@@ -31,4 +32,7 @@ Organization ID will be extracted during the Oauth 2.0 token flow and used in or
   - F2 - toggle Email/Username search
   - F3 - toggle Item Id search
 - u - List item totals by User widget
+- Shift+M - Show items with unexpected data structures
+- Shift+B - Show broken connections
+- Esc - Return to the content list from detail tables
 - q - Quit App

@@ -14,6 +14,8 @@ pub enum Action {
     MoveReferenceUp,
     MoveBrokenConnectionDown,
     MoveBrokenConnectionUp,
+    MoveStructureMismatchDown,
+    MoveStructureMismatchUp,
     SwitchFocus,
     ZeroReferences,
     SearchByKeyword,
@@ -28,6 +30,7 @@ pub enum Action {
     UserInputDeleteChar,
     UserInputSubmitQuery,
     FocusBrokenConnections,
+    FocusStructureMismatches,
     GoBack,
 }
 
@@ -231,8 +234,10 @@ pub fn handle_key(state: &State, key: KeyCode) -> Action {
                     Action::MoveSelectionDown
                 } else if state.focused_widget == FocusedWidget::BottomTable {
                     Action::MoveReferenceDown
-                } else {
+                } else if state.focused_widget == FocusedWidget::BrokenConnections {
                     Action::MoveBrokenConnectionDown
+                } else {
+                    Action::MoveStructureMismatchDown
                 }
             }
             KeyCode::Char('k') | KeyCode::Up => {
@@ -240,8 +245,10 @@ pub fn handle_key(state: &State, key: KeyCode) -> Action {
                     Action::MoveSelectionUp
                 } else if state.focused_widget == FocusedWidget::BottomTable {
                     Action::MoveReferenceUp
-                } else {
+                } else if state.focused_widget == FocusedWidget::BrokenConnections {
                     Action::MoveBrokenConnectionUp
+                } else {
+                    Action::MoveStructureMismatchUp
                 }
             }
             KeyCode::Enter if state.search_popup => Action::UserInputSubmitQuery,
@@ -249,7 +256,10 @@ pub fn handle_key(state: &State, key: KeyCode) -> Action {
             KeyCode::Char('s') | KeyCode::Char('i') => Action::SearchByKeyword,
             KeyCode::Char('u') => Action::ListUsers,
             KeyCode::Esc => {
-                if state.focused_widget == FocusedWidget::BrokenConnections {
+                if matches!(
+                    state.focused_widget,
+                    FocusedWidget::BrokenConnections | FocusedWidget::StructureMismatches
+                ) {
                     Action::GoBack
                 } else {
                     Action::Reset
@@ -258,6 +268,7 @@ pub fn handle_key(state: &State, key: KeyCode) -> Action {
             KeyCode::Char('q') => Action::Quit,
             KeyCode::Tab => Action::SwitchFocus,
             KeyCode::Char('B') => Action::FocusBrokenConnections,
+            KeyCode::Char('M') => Action::FocusStructureMismatches,
             _ => Action::NoOp,
         },
         InputMode::Editing => match key {
@@ -341,8 +352,27 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
                 app.state.broken_connections_state.select(Some(prev));
             }
         }
+        Action::MoveStructureMismatchDown => {
+            let next = move_selection(
+                app.state.structure_mismatches_state.selected(),
+                app.agol.structure_mismatches.len(),
+                1,
+            );
+            app.state.structure_mismatches_state.select(next);
+        }
+        Action::MoveStructureMismatchUp => {
+            let previous = move_selection(
+                app.state.structure_mismatches_state.selected(),
+                app.agol.structure_mismatches.len(),
+                -1,
+            );
+            app.state.structure_mismatches_state.select(previous);
+        }
         Action::FocusBrokenConnections => {
             app.state.focused_widget = FocusedWidget::BrokenConnections;
+        }
+        Action::FocusStructureMismatches => {
+            app.state.focused_widget = FocusedWidget::StructureMismatches;
         }
         Action::GoBack => {
             app.state.focused_widget = FocusedWidget::TopList;
@@ -355,6 +385,7 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
                 app.state.focused_widget = FocusedWidget::TopList;
             }
             FocusedWidget::BrokenConnections => {}
+            FocusedWidget::StructureMismatches => {}
         },
         Action::ZeroReferences => {
             filter_layer_no_references(app);
@@ -418,7 +449,10 @@ pub async fn handle_action(app: &mut App<'_>, action: Action) {
         }
         Action::Reset => {
             reset_filters(app).await;
-            if app.state.focused_widget == FocusedWidget::BrokenConnections {
+            if matches!(
+                app.state.focused_widget,
+                FocusedWidget::BrokenConnections | FocusedWidget::StructureMismatches
+            ) {
                 app.state.focused_widget = FocusedWidget::TopList;
             }
         }

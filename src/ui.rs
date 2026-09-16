@@ -2,6 +2,7 @@ use crate::models::{Agol, App, Config, Errors, FocusedWidget, InputMode, SearchT
 use crate::utils;
 use crate::widgets::{
     invalid_user_input_widget, no_access_token_error_widget, search_by_user_input_widget,
+    structure_mismatches_widget,
 };
 use agol::models::ArcGISSearchResults;
 use ratatui::style::{Color, Style};
@@ -130,6 +131,12 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         frame.area(),
                         &mut app.state.username_state,
                     )
+                } else if app.state.focused_widget == FocusedWidget::StructureMismatches {
+                    frame.render_stateful_widget(
+                        structure_mismatches_widget(&app.agol.structure_mismatches),
+                        frame.area(),
+                        &mut app.state.structure_mismatches_state,
+                    );
                 } else if app.state.focused_widget == FocusedWidget::BrokenConnections {
                     let broken_connections: Vec<&ArcGISSearchResults> =
                         app.agol.references.broken_connections.iter().collect();
@@ -217,7 +224,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     let queries = &app.state.queries.join(" && ");
 
                     let layer_info_text = format!(
-                        "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate Down | <k>/<Up> Navigate Up\n<s> Search | <0> zero references\nCurrent Query: {queries}"
+                        "Title: {selected_title}\nItem Type: {selected_item_type}\nOwner: {selected_owner}\n<j>/<Down> Navigate | <k>/<Up> Navigate\n<s> Search | <0> zero references | <B> broken connections | <M> structure mismatches\nCurrent Query: {queries}"
                     );
 
                     let widget_center = if app.state.references_loading {

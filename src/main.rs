@@ -63,6 +63,7 @@ async fn main() -> color_eyre::Result<()> {
                 agol_content: utils::filter_cli_args(&agol_items, &cli_args, &cli_filter),
                 cached_agol_content: agol_items.iter().collect(),
                 references: ArcGISReferences::default(),
+                structure_mismatches: Vec::new(),
                 users: vec![Users::default()],
             };
 
@@ -86,9 +87,10 @@ async fn main() -> color_eyre::Result<()> {
 
                 //TODO cleanup extra clones if possible
                 tokio::spawn(async move {
-                    if let Ok(mut refs) =
+                    if let Ok(processed) =
                         agol_data::process_references_only(client, token, agol_items_bg).await
                     {
+                        let mut refs = processed.references;
                         let mut broken_connections: HashSet<ArcGISSearchResults> = HashSet::new();
 
                         for (k, v) in &refs.lookup {
@@ -99,7 +101,7 @@ async fn main() -> color_eyre::Result<()> {
                             }
                         }
                         refs.broken_connections = broken_connections;
-                        let _ = references_tx.send(refs);
+                        let _ = references_tx.send((refs, processed.structure_mismatches));
                     }
                 });
             }
@@ -146,7 +148,7 @@ async fn run(
     app: &mut App<'_>,
     errors_rx: &mut UnboundedReceiver<Errors>,
     cli_args_rx: &mut UnboundedReceiver<String>,
-    references_rx: &mut UnboundedReceiver<ArcGISReferences>,
+    references_rx: &mut UnboundedReceiver<(ArcGISReferences, Vec<models::AgolItemIssue>)>,
     users_rx: &mut UnboundedReceiver<Vec<Users>>,
 ) -> std::io::Result<()> {
     while app.state.running {
@@ -159,8 +161,9 @@ async fn run(
             app.state.queries.push(args_query);
         }
 
-        if let Ok(refs) = references_rx.try_recv() {
+        if let Ok((refs, structure_mismatches)) = references_rx.try_recv() {
             app.agol.references = refs;
+            app.agol.structure_mismatches = structure_mismatches;
             app.state.references_loading = false;
         }
 

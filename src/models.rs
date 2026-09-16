@@ -18,6 +18,7 @@ pub struct State {
     pub agol_content_widget_state: ListState,
     pub reference_table_state: TableState,
     pub broken_connections_state: TableState,
+    pub structure_mismatches_state: TableState,
     pub username_state: TableState,
     pub focused_widget: FocusedWidget,
     pub user_input: UserInput,
@@ -44,7 +45,14 @@ pub struct Agol<'a> {
     pub agol_content: Vec<&'a ArcGISSearchResults>,
     pub cached_agol_content: Vec<&'a ArcGISSearchResults>,
     pub references: ArcGISReferences,
+    pub structure_mismatches: Vec<AgolItemIssue>,
     pub users: Vec<Users>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgolItemIssue {
+    pub item: ArcGISSearchResults,
+    pub reason: String,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -53,6 +61,7 @@ pub enum FocusedWidget {
     TopList,
     BottomTable,
     BrokenConnections,
+    StructureMismatches,
 }
 
 #[derive(Debug, Default)]
