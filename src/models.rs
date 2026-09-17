@@ -87,7 +87,7 @@ pub enum SearchType {
 
 #[derive(Debug)]
 pub enum Errors {
-    NoAccessToken,
+    Authentication(String),
     // TODO fetch all org usernames
     //TODO create third widget and display if email not in org usernames
     InvalidUserInput,

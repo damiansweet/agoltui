@@ -58,8 +58,11 @@ dependencies = [
  "eframe",
  "futures",
  "reqwest",
+ "serde",
+ "serde_json",
  "tokio",
  "webbrowser",
+ "zeroize",
 ]
 
 [[package]]

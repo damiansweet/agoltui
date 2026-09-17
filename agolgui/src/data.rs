@@ -1,3 +1,4 @@
+use crate::auth::{self, Credentials};
 use agol::{AgolItemType, ArcGISAccessToken, ArcGISOrgInfo, ArcGISReferences, ArcGISSearchResults};
 use futures::stream::{self, StreamExt};
 use std::collections::{HashMap, HashSet};
@@ -17,6 +18,7 @@ pub struct LoadedData {
     pub users: Vec<agol::models::Users>,
     pub references: ArcGISReferences,
     pub structure_issues: Vec<ItemIssue>,
+    pub authenticated_username: Option<String>,
 }
 
 #[derive(Debug)]
@@ -26,7 +28,7 @@ pub enum LoadEvent {
     Failed(String),
 }
 
-pub fn spawn_loader(sender: UnboundedSender<LoadEvent>) {
+pub fn spawn_loader(sender: UnboundedSender<LoadEvent>, credentials: Credentials) {
     std::thread::spawn(move || {
         let runtime = match tokio::runtime::Runtime::new() {
             Ok(runtime) => runtime,
@@ -39,21 +41,27 @@ pub fn spawn_loader(sender: UnboundedSender<LoadEvent>) {
         };
 
         runtime.block_on(async move {
-            if let Err(error) = load_all(&sender).await {
+            if let Err(error) = load_all(&sender, credentials).await {
                 let _ = sender.send(LoadEvent::Failed(error));
             }
         });
     });
 }
 
-async fn load_all(sender: &UnboundedSender<LoadEvent>) -> Result<(), String> {
+async fn load_all(
+    sender: &UnboundedSender<LoadEvent>,
+    credentials: Credentials,
+) -> Result<(), String> {
     status(sender, "Authenticating with ArcGIS Online…");
-    let client = Arc::new(reqwest::Client::new());
-    let token = Arc::new(
-        agol::fetch_oauth2_agol_token(&client)
-            .await
-            .map_err(|error| format!("Authentication failed: {error}"))?,
-    );
+    let client = Arc::new(auth::http_client()?);
+    let authenticated = auth::authenticate(&client, credentials).await?;
+    if let Some(username) = &authenticated.username {
+        status(
+            sender,
+            &format!("Verified ArcGIS Online account {username}…"),
+        );
+    }
+    let token = Arc::new(authenticated.token);
 
     status(sender, "Loading organization information…");
     let org = agol::fetch_org_info(&client, &token)
@@ -87,6 +95,7 @@ async fn load_all(sender: &UnboundedSender<LoadEvent>) -> Result<(), String> {
         users,
         references,
         structure_issues,
+        authenticated_username: authenticated.username,
     })));
     Ok(())
 }

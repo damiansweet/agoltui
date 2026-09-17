@@ -1,0 +1,8 @@
+# The companion `agol` crate currently declares these values with `env!`, which requires them at
+# compile time even when its authentication helpers are not used. These non-secret placeholders
+# keep credential-free builds working. AgolTui recognizes the placeholders as unset at runtime.
+[env]
+ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_ID = { value = "__AGOLTUI_NOT_CONFIGURED__", force = false }
+ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_SECRET = { value = "__AGOLTUI_NOT_CONFIGURED__", force = false }
+AGOL_ACCELA_DATA_TABLES_CLIENT_ID = { value = "__AGOLTUI_NOT_CONFIGURED__", force = false }
+AGOL_ACCELA_DATA_TABLES_CLIENT_SECRET = { value = "__AGOLTUI_NOT_CONFIGURED__", force = false }

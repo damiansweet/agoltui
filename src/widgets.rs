@@ -7,11 +7,13 @@ use crate::models::{AgolItemIssue, State};
 
 // ERROR WIDGETS
 
-pub fn no_access_token_error_widget() -> Paragraph<'static> {
-    Paragraph::new("Invalid Access Token\nPress 'q' to quit")
-        .block(Block::bordered().title("Error"))
-        .style(Style::new().red())
-        .alignment(Alignment::Center)
+pub fn authentication_error_widget(error: &str) -> Paragraph<'static> {
+    Paragraph::new(format!(
+        "Could not sign in to ArcGIS Online\n{error}\nPress 'q' to quit"
+    ))
+    .block(Block::bordered().title("Authentication Error"))
+    .style(Style::new().red())
+    .alignment(Alignment::Center)
 }
 
 pub fn invalid_user_input_widget() -> Paragraph<'static> {
@@ -69,7 +71,7 @@ mod tests {
     use ratatui::{Terminal, backend::TestBackend};
 
     fn render_paragraph(widget: Paragraph<'static>) -> String {
-        let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, 6)).unwrap();
         terminal
             .draw(|frame| frame.render_widget(widget, frame.area()))
             .unwrap();
@@ -78,9 +80,10 @@ mod tests {
 
     #[test]
     fn error_widgets_explain_the_problem() {
-        let token_error = render_paragraph(no_access_token_error_widget());
-        assert!(token_error.contains("Invalid Access Token"));
-        assert!(token_error.contains("Press 'q' to quit"));
+        let auth_error = render_paragraph(authentication_error_widget("Invalid credentials"));
+        assert!(auth_error.contains("Could not sign in"));
+        assert!(auth_error.contains("Invalid credentials"));
+        assert!(auth_error.contains("Press 'q' to quit"));
 
         let input_error = render_paragraph(invalid_user_input_widget());
         assert!(input_error.contains("Query must be between 3-50 characters"));

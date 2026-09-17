@@ -15,13 +15,19 @@ An ArcGIS Online admin cli tool written in rust. UI/widgets created using Ratatu
 
 ## Instructions
 
+[Read the complete TUI and GUI user guide](docs/USAGE.md) for setup, tutorials, controls, result
+interpretation, and troubleshooting.
 
-Users will need ArcGIS Online OAuth 2.0 app credentials with General & Admin View privileges  (Members, Groups, Content). 
-Users will need to set the following env vars:
+
+For unattended app authentication, set ArcGIS Online OAuth 2.0 credentials with General & Admin
+View privileges (Members, Groups, Content):
 - ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_ID
 - ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_SECRET
 
 Organization ID will be extracted during the Oauth 2.0 token flow and used in org wide queries.
+If these variables are not set, the app prompts for an ArcGIS Online user account and verifies
+the login before loading organization data. The account must be able to view organization
+content and members.
 
 ## Keybinds
 - j/Down Key - Traverse list down

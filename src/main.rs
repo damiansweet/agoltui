@@ -9,11 +9,13 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use std::collections::HashSet;
+use std::io::{self, Write};
 
 use crate::models::{Agol, Config};
 
 mod action;
 mod agol_data;
+mod auth;
 mod errors;
 mod models;
 mod ui;
@@ -32,12 +34,17 @@ async fn main() -> color_eyre::Result<()> {
     let mut app = ui::init_state(Agol::default(), Config::default());
     let mut agol_items: Vec<ArcGISSearchResults> = vec![];
 
-    //TODO check .cargo/config.toml for env vars Config
-    // TODO set .cargo/config.toml env
-    // TODO launch setup
-    let client = Arc::new(reqwest::Client::new());
-    match agol::fetch_oauth2_agol_token(&client).await {
-        Ok(access_token) => {
+    let client = Arc::new(auth::http_client().map_err(io::Error::other)?);
+    let credentials = match auth::application_credentials() {
+        Some(credentials) => credentials,
+        None => prompt_for_user_credentials()?,
+    };
+    match auth::authenticate(&client, credentials).await {
+        Ok(authenticated) => {
+            if let Some(username) = &authenticated.username {
+                println!("Verified ArcGIS Online account: {username}");
+            }
+            let access_token = authenticated.token;
             let config = Config {
                 org_info: agol::fetch_org_info(&client, &access_token).await?,
                 access_token: Arc::new(access_token.clone()),
@@ -121,9 +128,9 @@ async fn main() -> color_eyre::Result<()> {
 
             app = ui::init_state(agol, config);
         }
-        Err(_) => {
+        Err(error) => {
             tokio::spawn(async move {
-                let _ = errors_tx.send(Errors::NoAccessToken);
+                let _ = errors_tx.send(Errors::Authentication(error));
             });
         }
     };
@@ -141,6 +148,25 @@ async fn main() -> color_eyre::Result<()> {
     .await?;
 
     Ok(())
+}
+
+fn prompt_for_user_credentials() -> color_eyre::Result<auth::Credentials> {
+    println!(
+        "ArcGIS OAuth application credentials are not set. Sign in with an ArcGIS Online account."
+    );
+    print!("Username: ");
+    io::stdout().flush()?;
+    let mut username = String::new();
+    io::stdin().read_line(&mut username)?;
+    let username = username.trim().to_string();
+    if username.is_empty() {
+        return Err(color_eyre::eyre::eyre!("ArcGIS username cannot be empty"));
+    }
+    let password = rpassword::prompt_password("Password: ")?;
+    if password.is_empty() {
+        return Err(color_eyre::eyre::eyre!("ArcGIS password cannot be empty"));
+    }
+    Ok(auth::Credentials::User { username, password })
 }
 
 async fn run(

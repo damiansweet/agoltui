@@ -1,8 +1,7 @@
 use crate::models::{Agol, App, Config, Errors, FocusedWidget, InputMode, SearchType};
 use crate::utils;
 use crate::widgets::{
-    invalid_user_input_widget, no_access_token_error_widget, search_by_user_input_widget,
-    structure_mismatches_widget,
+    invalid_user_input_widget, search_by_user_input_widget, structure_mismatches_widget,
 };
 use agol::models::ArcGISSearchResults;
 use ratatui::style::{Color, Style};
@@ -37,9 +36,10 @@ fn selected_item<'a>(
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     match app.state.errors {
-        Some(Errors::NoAccessToken) => {
-            frame.render_widget(no_access_token_error_widget(), frame.area())
-        }
+        Some(Errors::Authentication(ref error)) => frame.render_widget(
+            crate::widgets::authentication_error_widget(error),
+            frame.area(),
+        ),
         Some(Errors::InvalidUserInput) => {
             frame.render_widget(invalid_user_input_widget(), frame.area());
         }

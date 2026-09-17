@@ -16,3 +16,5 @@ clap = { version = "4.5.58", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 futures = "0.3.32"
+rpassword = "7.4.0"
+zeroize = "1.8.2"

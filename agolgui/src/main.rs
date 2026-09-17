@@ -1,4 +1,6 @@
 mod app;
+#[path = "../../src/auth.rs"]
+mod auth;
 mod data;
 
 use app::AgolGui;

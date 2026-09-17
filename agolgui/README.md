@@ -2,6 +2,9 @@
 
 A native desktop version of AgolTui built with Rust and egui. It runs on Linux and Windows and keeps network/reference analysis off the UI thread.
 
+[Read the complete TUI and GUI user guide](../docs/USAGE.md) for setup, tutorials, controls, result
+interpretation, and troubleshooting.
+
 ## Features
 
 - Browse and search all organization content by title, owner, or item ID
@@ -27,7 +30,7 @@ Blue nodes are feature layers/services, green nodes are web maps, and orange nod
 
 ## Requirements
 
-Set the same OAuth environment variables used by AgolTui:
+For unattended app authentication, set the same OAuth environment variables used by AgolTui:
 
 ```text
 ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_ID
@@ -35,6 +38,9 @@ ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_SECRET
 ```
 
 The OAuth application needs General and Admin View privileges for members, groups, and content.
+If the variables are not set, the GUI displays an ArcGIS Online sign-in form and verifies the
+account before loading organization data. The account must be able to view organization content
+and members.
 
 ## Run on Linux
 

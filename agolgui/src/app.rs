@@ -1,9 +1,11 @@
+use crate::auth::{self, Credentials};
 use crate::data::{ItemIssue, LoadEvent, LoadedData, owner_counts, spawn_loader};
 use agol::{ArcGISReferences, ArcGISSearchResults};
 use eframe::egui::{self, Color32, RichText};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use zeroize::Zeroize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum View {
@@ -43,17 +45,29 @@ pub struct AgolGui {
     zero_references_only: bool,
     selected_id: Option<String>,
     graph: ConnectionGraph,
+    login_required: bool,
+    login_username: String,
+    login_password: String,
+    login_error: Option<String>,
 }
 
 impl AgolGui {
     pub fn new(context: &eframe::CreationContext<'_>) -> Self {
         configure_style(&context.egui_ctx);
         let (sender, events) = unbounded_channel();
-        spawn_loader(sender);
+        let credentials = auth::application_credentials();
+        let login_required = credentials.is_none();
+        if let Some(credentials) = credentials {
+            spawn_loader(sender, credentials);
+        }
         Self {
             events,
-            loading: true,
-            status: "Starting…".to_string(),
+            loading: !login_required,
+            status: if login_required {
+                "Sign in required".to_string()
+            } else {
+                "Starting…".to_string()
+            },
             error: None,
             data: None,
             view: View::Content,
@@ -62,6 +76,10 @@ impl AgolGui {
             zero_references_only: false,
             selected_id: None,
             graph: ConnectionGraph::default(),
+            login_required,
+            login_username: String::new(),
+            login_password: String::new(),
+            login_error: None,
         }
     }
 
@@ -88,10 +106,73 @@ impl AgolGui {
     fn restart(&mut self) {
         let (sender, events) = unbounded_channel();
         self.events = events;
-        self.loading = true;
         self.error = None;
+        self.login_error = None;
         self.status = "Starting…".to_string();
-        spawn_loader(sender);
+        if let Some(credentials) = auth::application_credentials() {
+            self.loading = true;
+            self.login_required = false;
+            spawn_loader(sender, credentials);
+        } else {
+            self.loading = false;
+            self.login_required = true;
+            self.login_password.zeroize();
+        }
+    }
+
+    fn submit_login(&mut self) {
+        let username = self.login_username.trim().to_string();
+        if username.is_empty() || self.login_password.is_empty() {
+            self.login_error = Some("Enter both a username and password.".to_string());
+            return;
+        }
+
+        let password = std::mem::take(&mut self.login_password);
+        let (sender, events) = unbounded_channel();
+        self.events = events;
+        self.loading = true;
+        self.login_required = false;
+        self.login_error = None;
+        self.error = None;
+        self.status = "Signing in to ArcGIS Online…".to_string();
+        spawn_loader(sender, Credentials::User { username, password });
+    }
+
+    fn login_screen(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(110.0);
+                ui.heading("Sign in to ArcGIS Online");
+                ui.add_space(8.0);
+                ui.label(
+                    "OAuth application credentials are not configured. Sign in with an account that can view organization content.",
+                );
+                ui.add_space(16.0);
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.login_username)
+                        .hint_text("Username")
+                        .desired_width(320.0),
+                );
+                let password_response = ui.add(
+                    egui::TextEdit::singleline(&mut self.login_password)
+                        .password(true)
+                        .hint_text("Password")
+                        .desired_width(320.0),
+                );
+                if let Some(error) = &self.login_error {
+                    ui.label(RichText::new(error).color(Color32::RED));
+                }
+                ui.add_space(8.0);
+                let submit = ui.button("Sign in").clicked()
+                    || (password_response.lost_focus()
+                        && ui.input(|input| input.key_pressed(egui::Key::Enter)));
+                if submit {
+                    self.submit_login();
+                }
+                ui.add_space(12.0);
+                ui.small("Credentials are sent only to ArcGIS Online over HTTPS and are not saved.");
+            });
+        });
     }
 
     fn navigation(&mut self, ctx: &egui::Context) {
@@ -132,6 +213,11 @@ impl AgolGui {
                 if let Some(data) = &self.data {
                     ui.separator();
                     ui.label(RichText::new(&data.org.full_url).color(Color32::GRAY));
+                    if let Some(username) = &data.authenticated_username {
+                        ui.label(
+                            RichText::new(format!("Signed in as {username}")).color(Color32::GRAY),
+                        );
+                    }
                 }
             });
         });
@@ -163,8 +249,7 @@ impl AgolGui {
                 }
                 ui.add_space(8.0);
                 ui.small(
-                    "Confirm ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_ID and \
-                     ORG_WIDE_SEARCH_AND_CATALOG_CLIENT_SECRET are set.",
+                    "Check the credentials and confirm that the account can view organization content.",
                 );
             });
         });
@@ -409,6 +494,12 @@ impl AgolGui {
 impl eframe::App for AgolGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.receive_events();
+
+        if self.login_required {
+            self.login_screen(ctx);
+            return;
+        }
+
         self.navigation(ctx);
 
         if self.loading {
@@ -427,6 +518,12 @@ impl eframe::App for AgolGui {
             View::BrokenConnections => self.broken_connections_view(ctx),
             View::StructureIssues => self.structure_issues_view(ctx),
         }
+    }
+}
+
+impl Drop for AgolGui {
+    fn drop(&mut self) {
+        self.login_password.zeroize();
     }
 }
 
